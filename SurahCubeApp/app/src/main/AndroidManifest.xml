@@ -3,6 +3,9 @@
 
     <!-- Needed to fetch the surah text (Arabic / English / Urdu) on first load -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Optional: precise local Fajr time from device location -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:label="Surah Cube"

@@ -1,9 +1,13 @@
 package com.surahcube.app;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.webkit.GeolocationPermissions;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -26,7 +30,22 @@ public class MainActivity extends Activity {
             s.setMediaPlaybackRequiresUserGesture(false);
 
             webView.setWebViewClient(new WebViewClient());
+            // allow the in-page geolocation (used for local Fajr time)
+            webView.setWebChromeClient(new WebChromeClient() {
+                @Override
+                public void onGeolocationPermissionsShowPrompt(String origin,
+                        GeolocationPermissions.Callback callback) {
+                    callback.invoke(origin, true, false);
+                }
+            });
             setContentView(webView);
+
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
+            }
 
             webView.loadUrl("file:///android_asset/index.html");
         } catch (Throwable t) {

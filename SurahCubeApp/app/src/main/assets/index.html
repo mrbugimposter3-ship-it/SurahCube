@@ -116,6 +116,21 @@
   #qload{display:none;position:absolute;inset:0;z-index:5;align-items:center;justify-content:center;
     color:var(--ink);font-size:16px;background:var(--paper);text-align:center;padding:30px}
   @media (max-width:700px){ #side{display:none} #qcard{padding:18px 16px 30px} }
+
+  /* ---------- Fajr panel ---------- */
+  #fajrPanel{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;
+    background:rgba(4,8,18,.72)}
+  #fajrPanel .fbox{width:360px;max-width:92vw;max-height:88vh;overflow-y:auto;background:var(--panel);
+    border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+  #fajrPanel h3{margin-bottom:6px}
+  #fajrPanel .fbig{font-size:42px;font-weight:700;color:var(--gold);margin:6px 0}
+  #fajrPanel .fsub{font-size:12px;color:var(--dim);margin:6px 0;line-height:1.5}
+  #fajrPanel .frow{display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  #fajrPanel input[type=text]{width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--txt);margin-top:10px;font-size:13px}
+  #fResults button{display:block;width:100%;text-align:left;margin:4px 0}
+  @keyframes ringpulse{0%,100%{background:#1d2742}50%{background:#7a1f1f}}
+  button.ringing{animation:ringpulse .8s infinite}
 </style>
 </head>
 <body>
@@ -129,6 +144,8 @@
     </div>
     <button id="liveBtn" class="on">Live clock</button>
     <button id="randBtn">🎲 Random point</button>
+    <button id="fajrBtn">🕌 Fajr</button>
+    <button id="cityBtn">🏙️ Cities</button>
     <div class="stat">Surahs: <b id="rangeLbl">—</b></div>
     <div class="stat">Next hour: <b id="cd">—</b></div>
     <div class="stat">Due: <b id="dueLbl">0</b></div>
@@ -142,7 +159,7 @@
       <div id="tip"></div>
       <div id="toast"></div>
       <div id="sheet"></div>
-      <div id="help">Drag to rotate · Scroll to zoom · Click a point to read its surah (mod 114 or ∛) · 🎲 picks a random point</div>
+      <div id="help">Drag to rotate · Scroll to zoom · Click a point: read its surah (mod 114 / ∛) · 🎲 random · 🕌 Fajr alarm · 🏙️ city mode (1000 largest cities)</div>
     </div>
     <div id="side">
       <h2>This hour's surahs</h2>
@@ -154,6 +171,30 @@
         <span class="dot" style="background:#66739a"></span>Idle
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ================= FAJR PANEL ================= -->
+<div id="fajrPanel">
+  <div class="fbox">
+    <h3>🕌 Fajr Alarm Clock</h3>
+    <div class="fsub" id="fLoc">📍 My location</div>
+    <div class="fbig" id="fTime">--:--</div>
+    <div class="fsub" id="fCount">—</div>
+    <div class="frow">
+      <button id="fSet">🔔 Set alarm to this Fajr</button>
+      <button id="fOff">Alarm off</button>
+      <button id="fTest">🔊 Test</button>
+      <button id="fStop" style="display:none">⏹ Stop</button>
+      <button id="fMyLoc">📍 My location</button>
+    </div>
+    <div class="fsub" id="fAlarmState">Alarm: off</div>
+    <input type="text" id="fSearch" placeholder="Search 1000 cities… (Makkah, Jakarta, Cairo…)">
+    <div id="fResults"></div>
+    <div class="fsub">The 1000-cities square: point #1–1000 = the world's 1000 largest cities
+    (GeoNames, by population). Fajr angle 18° (MWL); city times via api.aladhan.com when online,
+    astronomical calculation offline. Approximate ±2 min — always confirm with your local masjid.</div>
+    <div class="frow"><button id="fClose">Close</button></div>
   </div>
 </div>
 
@@ -388,7 +429,7 @@ function hoverCheck(e){
   const divs=allDivisors(p.n);
   const divTxt = divs.length>14 ? divs.slice(0,14).join(', ')+` … (+${divs.length-14})` : divs.join(', ');
   tip.innerHTML =
-    `<div class="pnum">Point ${p.n}</div>`+
+    `<div class="pnum">Point ${p.n}${cityMode?` · 🏙️ ${CITIES[p.n-1][0]}, ${CITIES[p.n-1][1]}`:''}</div>`+
     `<div class="mod">${p.n} mod 114 = <b>${modSurah(p.n)===114&&p.n%114===0?0:p.n%114}</b> → Surah <b>${modSurah(p.n)} ${SURAH_NAMES[modSurah(p.n)-1]}</b></div>`+
     `<div class="mod">∛${p.n} ≈ ${Math.cbrt(p.n).toFixed(2)} → Surah <b>${cbrtSurah(p.n)} ${SURAH_NAMES[cbrtSurah(p.n)-1]}</b></div>`+
     `<div class="row">Status: <b>${cleared.has(p.n)?'✓ taken care of':(hits.length?'⚠ DUE this hour':'idle this hour')}</b></div>`+
@@ -413,6 +454,7 @@ function openSheet(n,x,y){
     `<div class="pm">${n} mod 114 = ${n%114} · ∛${n} ≈ ${Math.cbrt(n).toFixed(2)}</div>`+
     `<button class="read" id="shMod">📖 Read Surah ${ms} — ${SURAH_NAMES[ms-1]} <small>(${n} mod 114)</small></button>`+
     `<button class="read" id="shCbrt">📖 Read Surah ${cs} — ${SURAH_NAMES[cs-1]} <small>(cube root)</small></button>`+
+    (cityMode?`<button class="read" id="shFajr">🕌 Fajr in ${CITIES[n-1][0]}, ${CITIES[n-1][1]} — set alarm</button>`:'')+
     (due?`<button class="care" id="shCare">✓ Take care of point (+10)</button>`:'')+
     `<button class="close" id="shClose">✕ Close</button>`;
   sheet.style.display='block';
@@ -422,6 +464,8 @@ function openSheet(n,x,y){
   document.getElementById('shCbrt').onclick=()=>{closeSheet();openReader(cs,n,'cube root');};
   const care=document.getElementById('shCare');
   if(care) care.onclick=()=>{ takeCare(n); closeSheet(); };
+  const sfBtn=document.getElementById('shFajr');
+  if(sfBtn) sfBtn.onclick=()=>{ closeSheet(); openFajrPanel(n-1); };
   document.getElementById('shClose').onclick=closeSheet;
 }
 function closeSheet(){ sheet.style.display='none'; }
@@ -579,6 +623,196 @@ function readerFrame(ts){
   requestAnimationFrame(readerFrame);
 }
 
+/* ================= 1000 CITIES + FAJR ALARM ================= */
+const CITIES = [["Shanghai","CN",31.22,121.46],["Chongqing","CN",29.56,106.56],["Chengdu","CN",30.67,104.07],["Beijing","CN",39.91,116.4],["Guangzhou","CN",23.12,113.25],["Shenzhen","CN",22.55,114.07],["Kinshasa","CD",-4.33,15.31],["Istanbul","TR",41.01,28.95],["Lagos","NG",6.45,3.39],["Ho Chi Minh City","VN",10.82,106.63],["Tianjin","CN",39.14,117.18],["Wuhan","CN",30.58,114.27],["Lahore","PK",31.56,74.35],["Xi’an","CN",34.26,108.93],["Mumbai","IN",19.07,72.88],["São Paulo","BR",-23.55,-46.64],["Mexico City","MX",19.43,-99.13],["Hangzhou","CN",30.29,120.16],["Karachi","PK",24.86,67.01],["Delhi","IN",28.65,77.23],["Moscow","RU",55.75,37.62],["Dhaka","BD",23.71,90.41],["Seoul","KR",37.57,126.98],["Harbin","CN",45.75,126.65],["Tokyo","JP",35.69,139.69],["Dongguan","CN",23.02,113.75],["Cairo","EG",30.06,31.25],["Hefei","CN",31.86,117.28],["Johannesburg","ZA",-26.2,28.04],["Weifang","CN",36.71,119.1],["Nanjing","CN",32.06,118.78],["Shenyang","CN",41.79,123.43],["Foshan","CN",23.03,113.13],["London","GB",51.51,-0.13],["New York City","US",40.71,-74.01],["Jakarta","ID",-6.21,106.85],["Bengaluru","IN",12.97,77.59],["Jinan","CN",36.67,117.0],["Hanoi","VN",21.02,105.84],["Taipei","TW",25.05,121.53],["Lima","PE",-12.04,-77.03],["Bogotá","CO",4.61,-74.08],["Dalian","CN",38.91,121.6],["Hong Kong","HK",22.28,114.17],["Baghdad","IQ",33.34,44.4],["Wuzhong","CN",37.99,106.2],["Qingdao","CN",36.06,120.38],["Tehran","IR",35.69,51.42],["Yantai","CN",37.48,121.44],["Hyderabad","IN",17.38,78.46],["Rio de Janeiro","BR",-22.91,-43.18],["Suzhou","CN",31.3,120.6],["Puxi","CN",31.24,121.47],["Zhengzhou","CN",34.76,113.65],["Ahmedabad","IN",23.03,72.59],["Abidjan","CI",5.35,-4.0],["Nanning","CN",22.82,108.32],["Kunming","CN",25.04,102.72],["Shijiazhuang","CN",38.04,114.48],["Changchun","CN",43.88,125.32],["Pudong","CN",31.24,121.5],["Sydney","AU",-33.87,151.21],["Singapore","SG",1.29,103.85],["Melbourne","AU",-37.81,144.96],["Dar es Salaam","TZ",-6.82,39.27],["Saint Petersburg","RU",59.94,30.31],["Taiyuan","CN",37.87,112.56],["Alexandria","EG",31.2,29.92],["Bangkok","TH",13.75,100.5],["Kano","NG",12.0,8.52],["Santiago","CL",-33.46,-70.65],["Cape Town","ZA",-33.93,18.42],["Peshawar","PK",34.01,71.58],["Zibo","CN",36.79,118.06],["Jeddah","SA",21.49,39.19],["Chennai","IN",13.09,80.28],["Kolkata","IN",22.56,88.36],["Xiamen","CN",24.48,118.08],["Surat","IN",21.2,72.83],["Yangzhou","CN",32.4,119.44],["Huai'an","CN",33.59,119.02],["Guiyang","CN",26.58,106.72],["Yangon","MM",16.81,96.16],["Bao'an","CN",22.55,113.88],["Kabul","AF",34.53,69.17],["Nairobi","KE",-1.28,36.82],["Wuxi","CN",31.57,120.29],["Giza","EG",30.01,31.21],["Lanzhou","CN",36.06,103.84],["Bamako","ML",12.61,-7.98],["Riyadh","SA",24.69,46.72],["Fuzhou","CN",26.06,119.31],["Ürümqi","CN",43.8,87.6],["New Taipei City","TW",25.06,121.46],["New Territories","HK",22.42,114.11],["Chattogram","BD",22.34,91.83],["Addis Ababa","ET",9.02,38.75],["Zaozhuang","CN",34.86,117.55],["Zhongshan","CN",22.52,113.38],["Shantou","CN",23.35,116.68],["Los Angeles","US",34.05,-118.24],["Faisalabad","PK",31.42,73.09],["Dubai","AE",25.08,55.31],["Yokohama","JP",35.43,139.65],["Ningbo","CN",29.88,121.55],["Nanhai","CN",23.02,113.14],["Casablanca","MA",33.59,-7.61],["Ibadan","NG",7.38,3.91],["Puyang","CN",29.46,119.89],["Ankara","TR",39.92,32.85],["Shiyan","CN",32.65,110.78],["Hohhot","CN",40.81,111.65],["Berlin","DE",52.52,13.41],["Tangshan","CN",39.64,118.18],["Rawalpindi","PK",33.6,73.05],["Lüliang","CN",37.52,111.14],["Durban","ZA",-29.86,31.03],["Anshan","CN",41.12,122.99],["Changzhou","CN",31.77,119.95],["Busan","KR",35.1,129.03],["Madrid","ES",40.42,-3.7],["Pyongyang","KP",39.03,125.75],["Pune","IN",18.52,73.86],["Datong","CN",40.09,113.29],["Bursa","TR",40.2,29.06],["Changsha","CN",28.2,112.97],["Quezon City","PH",14.65,121.05],["Jaipur","IN",26.92,75.79],["Huainan","CN",32.63,117.0],["Surabaya","ID",-7.25,112.75],["Incheon","KR",37.46,126.71],["Haikou","CN",20.03,110.35],["Caracas","VE",10.49,-66.88],["Kyiv","UA",50.45,30.52],["İzmir","TR",38.41,27.14],["Huizhou","CN",23.11,114.42],["Buenos Aires","AR",-34.61,-58.38],["Yinchuan","CN",38.47,106.27],["Taichung","TW",24.15,120.68],["Kanpur","IN",26.47,80.35],["Toronto","CA",43.71,-79.4],["Quito","EC",-0.23,-78.52],["Brisbane","AU",-27.47,153.03],["Luanda","AO",-8.84,13.23],["Baotou","CN",40.65,109.84],["Osaka","JP",34.69,135.5],["Linyi","CN",35.06,118.34],["Baoding","CN",38.87,115.46],["Kaohsiung","TW",22.62,120.31],["Brooklyn","US",40.65,-73.95],["Guayaquil","EC",-2.2,-79.89],["Belo Horizonte","BR",-19.92,-43.94],["Minhang","CN",31.11,121.37],["Bazhong","CN",31.87,106.74],["Salvador","BR",-12.98,-38.49],["Abuja","NG",9.06,7.5],["Gazipur","BD",24.0,90.42],["Chicago","US",41.85,-87.65],["Wenzhou","CN",28.0,120.67],["Bekasi","ID",-6.23,106.99],["Dakar","SN",14.69,-17.44],["Haiphong","VN",20.86,106.68],["Yunfu","CN",22.93,112.04],["Navi Mumbai","IN",19.04,73.02],["Mogadishu","SO",2.04,45.34],["Kumasi","GH",6.69,-1.62],["Bandung","ID",-6.92,107.61],["Gujranwala","PK",32.16,74.19],["Medan","ID",3.58,98.67],["Lucknow","IN",26.84,80.92],["Xining","CN",36.63,101.76],["Ouagadougou","BF",12.37,-1.53],["Nagpur","IN",21.15,79.08],["Fortaleza","BR",-3.72,-38.54],["Cali","CO",3.43,-76.52],["Perth","AU",-31.95,115.86],["Daegu","KR",35.87,128.59],["Algiers","DZ",36.73,3.09],["Nanchang","CN",28.68,115.85],["Baku","AZ",40.38,49.89],["Nagoya","JP",35.18,136.91],["Rome","IT",41.89,12.51],["Queens","US",40.68,-73.84],["Houston","US",29.76,-95.36],["Mashhad","IR",36.3,59.61],["Shaoxing","CN",30.0,120.58],["Nantong","CN",32.03,120.87],["Baoshan","CN",31.41,121.49],["Kowloon","HK",22.32,114.18],["Gaziantep","TR",37.06,37.38],["Lubumbashi","CD",-11.66,27.48],["Manaus","BR",-3.1,-60.02],["Lusaka","ZM",-15.41,28.29],["Brasília","BR",-15.78,-47.93],["Zhuhai","CN",22.28,113.57],["Santo Domingo","DO",18.47,-69.89],["Lomé","TG",6.13,1.22],["Multan","PK",30.2,71.48],["Havana","CU",23.13,-82.38],["Depok","ID",-6.4,106.82],["Ordos","CN",39.61,109.78],["Paris","FR",48.85,2.35],["Coimbatore","IN",11.01,76.97],["Qingyang","CN",35.71,107.64],["Port Harcourt","NG",4.78,7.01],["Pretoria","ZA",-25.74,28.19],["Córdoba","AR",-31.41,-64.19],["Mbuji-Mayi","CD",-6.14,23.59],["Aleppo","SY",36.2,37.16],["Kunshan","CN",31.38,120.95],["Al Mawşil al Jadīdah","IQ",36.33,43.11],["Zunyi","CN",27.69,106.91],["La Paz","BO",-16.5,-68.15],["Lianyungang","CN",34.6,119.22],["Medellín","CO",6.25,-75.57],["Puning","CN",23.31,116.17],["Indore","IN",22.72,75.83],["Brazzaville","CG",-4.27,15.28],["Tashkent","UZ",41.26,69.22],["Ganzhou","CN",25.85,114.93],["Almaty","KZ",43.25,76.91],["Khartoum","SD",15.55,32.53],["Hamburg","DE",53.55,9.99],["Sapporo","JP",43.07,141.35],["Songjiang","CN",31.03,121.22],["Accra","GH",5.56,-0.2],["Curitiba","BR",-25.43,-49.27],["Sanaa","YE",15.35,44.21],["Conakry","GN",9.54,-13.68],["Tangerang","ID",-6.18,106.63],["Tijuana","MX",32.5,-117.0],["Hyderabad","PK",25.4,68.38],["Beirut","LB",33.89,35.5],["Jieyang","CN",23.54,116.37],["Jilin","CN",43.85,126.56],["Jiading","CN",31.39,121.24],["Bucharest","RO",44.43,26.11],["Camayenne","GN",9.54,-13.69],["Kakamega","KE",0.28,34.75],["Shangqiu","CN",34.41,115.66],["Nanchong","CN",30.8,106.08],["Tainan","TW",22.99,120.21],["Kaduna","NG",10.53,7.44],["Omdurman","SD",15.64,32.48],["Davao","PH",7.07,125.61],["Thāne","IN",19.2,72.96],["Iztapalapa","MX",19.36,-99.06],["Diyarbakır","TR",37.91,40.22],["Santa Cruz de la Sierra","BO",-17.79,-63.18],["Vadodara","IN",22.3,73.21],["Adana","TR",36.99,35.33],["Nanyang","CN",33.01,112.55],["Abu Dhabi","AE",24.45,54.4],["Palembang","ID",-2.92,104.75],["Sharjah","AE",25.33,55.41],["Bhopal","IN",23.25,77.4],["Jiangmen","CN",22.58,113.08],["Benin City","NG",6.34,5.63],["Jiangyin","CN",31.91,120.26],["Fuyang","CN",32.9,115.82],["Montréal","CA",45.51,-73.59],["Bayan Nur","CN",40.74,107.39],["Chengtangcun","CN",35.08,117.19],["Maracaibo","VE",10.64,-71.61],["Chaozhou","CN",23.65,116.62],["Minsk","BY",53.9,27.57],["Budapest","HU",47.5,19.04],["Qingyuan","CN",23.7,113.03],["Tai’an","CN",36.19,117.12],["Rasapūdipalem","IN",17.73,83.32],["Pimpri-Chinchwad","IN",18.62,73.8],["Caloocan","PH",14.65,120.97],["Warsaw","PL",52.23,21.01],["Soweto","ZA",-26.27,27.86],["Semarang","ID",-6.99,110.42],["Puebla","MX",19.05,-98.21],["Vienna","AT",48.21,16.37],["Barcelona","ES",41.39,2.16],["Patna","IN",25.59,85.14],["Mosul","IQ",36.34,43.12],["Kallakurichi","IN",11.73,78.96],["Kampala","UG",0.32,32.58],["Changshu","CN",31.65,120.74],["Rabat","MA",34.01,-6.83],["Recife","BR",-8.05,-34.88],["Phoenix","US",33.45,-112.07],["Suzhou","CN",33.64,116.98],["Ecatepec de Morelos","MX",19.6,-99.06],["Lu’an","CN",31.74,116.52],["Valencia","VE",10.16,-68.0],["Ludhiana","IN",30.91,75.85],["Yancheng","CN",33.36,120.16],["Novosibirsk","RU",55.02,82.93],["Erbil","IQ",36.19,44.01],["Fukuoka","JP",33.6,130.42],["Taizhou","CN",32.49,119.91],["Daqing","CN",46.58,125.0],["Kisangani","CD",0.52,25.19],["Manila","PH",14.6,120.98],["Wuhu","CN",31.35,118.43],["Santiago de Querétaro","MX",20.59,-100.39],["Dazhou","CN",31.21,107.46],["León de los Aldama","MX",21.12,-101.68],["Makkah","SA",21.43,39.83],["Philadelphia","US",39.95,-75.16],["Phnom Penh","KH",11.56,104.92],["Guilin","CN",25.28,110.3],["Damascus","SY",33.51,36.29],["Quetta","PK",30.18,67.0],["Zhaoqing","CN",23.05,112.46],["Onitsha","NG",6.15,6.79],["Mianyang","CN",31.47,104.68],["Auckland","NZ",-36.85,174.76],["Isfahan","IR",32.65,51.67],["Wanzhou","CN",30.76,108.4],["Astana","KZ",51.18,71.45],["Harare","ZW",-17.83,31.05],["Monrovia","LR",6.3,-10.8],["Putian","CN",25.44,119.01],["Kawasaki","JP",35.52,139.72],["Goiânia","BR",-16.68,-49.25],["San Antonio","US",29.42,-98.49],["Kobe","JP",34.69,135.18],["Jinzhou","CN",41.11,121.14],["Stockholm","SE",59.33,18.07],["Ciudad Juárez","MX",31.72,-106.46],["Cần Thơ","VN",10.04,105.79],["Munich","DE",48.14,11.58],["Khulna","BD",22.81,89.56],["Belém","BR",-1.46,-48.5],["Yekaterinburg","RU",56.86,60.62],["Porto Alegre","BR",-30.03,-51.23],["Manhattan","US",40.78,-73.97],["Nashik","IN",20.0,73.79],["Taizhou","CN",28.66,121.43],["Asunción","PY",-25.29,-57.65],["Yiwu","CN",29.32,120.08],["Zapopan","MX",20.72,-103.39],["Makassar","ID",-5.15,119.43],["Adelaide","AU",-34.93,138.6],["Quanzhou","CN",24.91,118.59],["Madurai","IN",9.92,78.12],["Jinhua","CN",29.11,119.64],["Kyoto","JP",35.02,135.75],["Cixi","CN",30.18,121.25],["Changde","CN",29.03,111.7],["Kuala Lumpur","MY",3.14,101.69],["Kayseri","TR",38.73,35.49],["Kaifeng","CN",34.8,114.31],["Karaj","IR",35.83,50.99],["Kathmandu","NP",27.7,85.32],["Daejeon","KR",36.35,127.38],["Baoji","CN",34.37,107.24],["Suqian","CN",33.95,118.3],["Liuzhou","CN",24.32,109.41],["Tirunelveli","IN",8.73,77.68],["Konya","TR",37.87,32.48],["Zhangjiagang","CN",31.86,120.54],["Agra","IN",27.18,78.02],["South Tangerang","ID",-6.29,106.72],["Tabriz","IR",38.08,46.29],["Kharkiv","UA",49.98,36.25],["Xinyang","CN",32.12,114.07],["Jinjiang","CN",24.82,118.57],["Faridabad","IN",28.41,77.31],["Bozhou","CN",33.88,115.77],["Qujing","CN",25.48,103.78],["San Diego","US",32.72,-117.16],["Gwangju","KR",35.15,126.92],["Zhanjiang","CN",21.23,110.39],["Fushun","CN",41.89,123.94],["Rājkot","IN",22.29,70.79],["Luoyang","CN",34.67,112.44],["Guadalajara","MX",20.68,-103.35],["The Bronx","US",40.85,-73.87],["Huế","VN",16.46,107.6],["Guankou","CN",28.16,113.63],["Milan","IT",45.46,9.19],["Najafgarh","IN",28.61,76.98],["Lianjiang","CN",21.65,110.28],["N'Djamena","TD",12.11,15.04],["Handan","CN",36.61,114.49],["Bannu","PK",32.99,70.6],["Yichang","CN",30.71,111.28],["Antananarivo","MG",-18.91,47.54],["Heze","CN",35.24,115.47],["Guarulhos","BR",-23.46,-46.53],["Abobo","CI",5.42,-4.02],["Jamshedpur","IN",22.8,86.19],["Douala","CM",4.05,9.7],["Antalya","TR",36.91,30.7],["Basrah","IQ",30.51,47.78],["Dallas","US",32.78,-96.81],["Saitama","JP",35.91,139.66],["Niamey","NE",13.51,2.11],["Liupanshui","CN",26.59,104.83],["Taguig","PH",14.52,121.08],["Maoming","CN",21.67,110.91],["Calgary","CA",51.05,-114.09],["Tripoli","LY",32.89,13.19],["Madinah","SA",24.47,39.61],["Yaoundé","CM",3.87,11.52],["Batam","ID",1.15,104.02],["Qinzhou","CN",21.98,108.65],["Luohe","CN",33.57,114.03],["Xiangyang","CN",32.04,112.14],["Yangjiang","CN",21.86,111.96],["Yixing","CN",31.36,119.82],["Pimpri","IN",18.62,73.81],["Da Nang","VN",16.07,108.22],["Amman","JO",31.96,35.95],["Budta","PH",7.2,124.44],["Belgrade","RS",44.8,20.47],["Biên Hòa","VN",10.94,106.82],["Kananga","CD",-5.9,22.42],["Qingpu","CN",31.15,121.11],["Montevideo","UY",-34.9,-56.19],["Xuchang","CN",34.03,113.86],["Kalyān","IN",19.24,73.14],["Zigong","CN",29.34,104.78],["Nizhniy Novgorod","RU",56.33,44.0],["Jepara","ID",-6.59,110.67],["Maputo","MZ",-25.97,32.58],["Xuzhou","CN",34.2,117.28],["Dammam","SA",26.43,50.1],["Ra’s Bayrūt","LB",33.9,35.48],["Neijiang","CN",29.58,105.06],["Shiraz","IR",29.61,52.53],["Heshan","CN",28.57,112.35],["Dombivali","IN",19.22,73.08],["Kazan","RU",55.79,49.12],["Jining","CN",35.41,116.58],["Barquisimeto","VE",10.06,-69.36],["Shubrā al Khaymah","EG",30.13,31.25],["Putuo","CN",31.25,121.39],["Port-au-Prince","HT",18.54,-72.34],["Suwon","KR",37.29,127.01],["Liaocheng","CN",36.45,116.0],["Jinzhong","CN",37.68,112.75],["Callao","PE",-12.05,-77.13],["Meerut","IN",28.98,77.71],["Virār","IN",19.46,72.81],["Nowrangapur","IN",19.23,82.55],["Karbala","IQ",32.62,44.02],["Changzhi","CN",36.18,113.11],["Tianshui","CN",34.58,105.74],["Sadr City","IQ",33.39,44.46],["Yangpu","CN",31.26,121.52],["Mombasa","KE",-4.05,39.66],["Mandalay","MM",21.97,96.08],["Srinagar","IN",34.09,74.81],["Barranquilla","CO",10.97,-74.78],["Chelyabinsk","RU",55.16,61.43],["Mérida","MX",20.97,-89.62],["Hiroshima","JP",34.4,132.45],["Shymkent","KZ",42.31,69.6],["Santiago de los Caballeros","DO",19.45,-70.69],["Weinan","CN",34.5,109.51],["Ghāziābād","IN",28.67,77.44],["Matola","MZ",-25.96,32.46],["Dhanbad","IN",23.8,86.43],["Arequipa","PE",-16.4,-71.54],["Hong Kong Island","HK",22.26,114.18],["Fes","MA",34.03,-5.0],["Gustavo Adolfo Madero","MX",19.49,-99.11],["Nouakchott","MR",18.09,-15.98],["Jiaxing","CN",30.75,120.75],["Aurangabad","IN",19.88,75.34],["Zhongwei","CN",37.51,105.19],["Omsk","RU",54.99,73.37],["Pikine","SN",14.76,-17.39],["Pekanbaru","ID",0.52,101.44],["Panjin","CN",41.12,122.07],["Bandar Lampung","ID",-5.43,105.26],["Prague","CZ",50.09,14.42],["Varanasi","IN",25.32,83.01],["Jiujiang","CN",29.7,116.0],["Samara","RU",53.21,50.14],["Aba","NG",5.11,7.37],["Amritsar","IN",31.62,74.88],["Birmingham","GB",52.48,-1.9],["Copenhagen","DK",55.68,12.57],["Sofia","BG",42.7,23.32],["Anyang","CN",36.1,114.38],["Yerevan","AM",40.18,44.51],["Luohu District","CN",22.55,114.13],["Vijayawada","IN",16.51,80.65],["Fengxiang","CN",30.86,121.47],["Bijie","CN",27.3,105.29],["Monterrey","MX",25.68,-100.32],["Kigali","RW",-1.95,30.06],["Rostov-on-Don","RU",47.22,39.71],["Zhuzhou","CN",27.83,113.15],["Rui’an","CN",27.78,120.66],["Malingao","PH",7.16,124.47],["Touba","SN",14.86,-15.88],["Ufa","RU",54.74,55.97],["Ranchi","IN",23.34,85.31],["Zoucheng","CN",35.4,116.97],["Shangrao","CN",28.45,117.94],["Lilongwe","MW",-13.97,33.79],["Huaibei","CN",33.97,116.79],["Maiduguri","NG",11.85,13.16],["Xuhui","CN",31.2,121.45],["Meishan","CN",30.04,103.84],["Mwanza","TZ",-2.52,32.9],["Wuchang","CN",30.54,114.3],["Ulsan","KR",35.54,129.32],["Sendai","JP",38.27,140.87],["Krasnoyarsk","RU",56.04,92.93],["Fuzhou","CN",27.96,116.33],["Guigang","CN",23.12,109.59],["Oslo","NO",59.91,10.75],["Jabalpur","IN",23.17,79.95],["Ilorin","NG",8.5,4.54],["Aden","YE",12.78,45.04],["Bogor","ID",-6.59,106.79],["Ciudad Nezahualcoyotl","MX",19.4,-99.01],["Hengyang","CN",26.89,112.62],["Prayagraj","IN",25.44,81.84],["Trujillo","PE",-8.12,-79.03],["Visakhapatnam","IN",17.68,83.2],["Goyang-si","KR",37.66,126.83],["Yulin","CN",22.63,110.15],["Jodhpur","IN",26.27,73.01],["Gwalior","IN",26.23,78.17],["Jingzhou","CN",30.35,112.19],["Gqeberha","ZA",-33.96,25.61],["Tbilisi","GE",41.69,44.83],["Voronezh","RU",51.67,39.19],["Xinxiang","CN",35.19,113.8],["Yichun","CN",27.83,114.4],["Sokoto","NG",13.06,5.24],["Jos","NG",9.93,8.89],["Tangier","MA",35.77,-5.8],["Teni","IN",10.01,77.48],["Xianyang","CN",34.34,108.7],["Mexicali","MX",32.63,-115.45],["Pointe-Noire","CG",-4.78,11.86],["Maceió","BR",-9.67,-35.74],["Campinas","BR",-22.91,-47.06],["Sanya","CN",18.25,109.51],["Rangpur","BD",25.75,89.25],["Kirkuk","IQ",35.47,44.39],["Ashgabat","TM",37.95,58.38],["Shaoguan","CN",24.8,113.58],["Howrah","IN",22.58,88.32],["Raipur","IN",21.23,81.63],["Changwon","KR",35.23,128.68],["Longyan","CN",25.07,117.02],["Köln","DE",50.93,6.95],["Dublin","IE",53.33,-6.25],["Tiruchirappalli","IN",10.82,78.7],["Yongzhou","CN",26.42,111.61],["Brussels","BE",50.85,4.35],["Zamboanga","PH",6.91,122.07],["Ottawa","CA",45.41,-75.7],["Huzhou","CN",30.87,120.09],["Xinyi","CN",22.37,110.95],["Volgograd","RU",48.71,44.5],["Khartoum North","SD",15.65,32.53],["Edmonton","CA",53.55,-113.47],["Odesa","UA",46.49,30.74],["Wuwei","CN",37.93,102.63],["Jacksonville","US",30.33,-81.66],["Fort Worth","US",32.73,-97.32],["Yishui","CN",35.78,118.63],["Hanzhong","CN",33.08,107.02],["Hezhou","CN",24.4,111.57],["Pest","HU",47.5,19.08],["Kota","IN",25.18,75.84],["Zhu Cheng City","CN",36.0,119.4],["Shivaji Nagar","IN",18.53,73.85],["Dongying","CN",37.46,118.49],["Luzhou","CN",28.89,105.43],["San Jose","US",37.34,-121.89],["Sholapur","IN",17.67,75.91],["Marrakesh","MA",31.63,-8.0],["Guatemala City","GT",14.64,-90.51],["Meizhou","CN",24.29,116.12],["Yueyang","CN",29.37,113.09],["Laiwu","CN",36.19,117.66],["Esenyurt","TR",41.03,28.68],["Perm","RU",58.01,56.25],["Zaria","NG",11.11,7.72],["Kennedy","CO",4.62,-74.15],["Chiba","JP",35.6,140.12],["Pingdingshan","CN",33.73,113.32],["Ciudad Guayana","VE",8.35,-62.64],["Sargodha","PK",32.09,72.67],["Austin","US",30.27,-97.74],["Managua","NI",12.13,-86.25],["Bengbu","CN",32.94,117.36],["Salé","MA",34.05,-6.8],["Jerusalem","IL",31.77,35.22],["Chandigarh","IN",30.74,76.79],["Dnipro","UA",48.47,35.04],["Feicheng","CN",36.25,116.77],["Cebu City","PH",10.32,123.89],["Sanhe","CN",39.98,117.07],["Guli","CN",28.88,120.03],["Tiruppur","IN",11.12,77.35],["Guwahati","IN",26.18,91.75],["Xiangtan","CN",27.85,112.9],["Linfen","CN",36.09,111.52],["Victoria","HK",22.29,114.14],["Zhenjiang","CN",32.21,119.46],["Enugu","NG",6.44,7.5],["Rosario","AR",-32.95,-60.64],["Sulţānah","SA",24.49,39.59],["Huludao","CN",40.75,120.84],["Hubballi","IN",15.35,75.13],["Padang","ID",-0.95,100.35],["Kitakyushu","JP",33.85,130.85],["Taiz","YE",13.58,44.02],["Setagaya","JP",35.64,139.65],["Kingston","JM",18.0,-76.79],["Jing’an","CN",31.22,121.42],["Baoshan","CN",25.12,99.16],["Chihuahua","MX",28.64,-106.09],["Nay Pyi Taw","MM",19.75,96.13],["Eskişehir","TR",39.78,30.52],["Mysuru","IN",12.3,76.64],["Chengde","CN",40.95,117.96],["Salem","IN",11.65,78.16],["São Luís","BR",-2.53,-44.3],["Seongnam-si","KR",37.44,127.14],["Cartagena","CO",10.4,-75.49],["Antipolo","PH",14.63,121.12],["Columbus","US",39.96,-83.0],["Sialkot","PK",32.49,74.53],["Charlotte","US",35.23,-80.84],["Laibin","CN",23.75,109.22],["Warri","NG",5.52,5.75],["Naples","IT",40.85,14.27],["Xiaogan","CN",30.93,113.92],["Wuchuan","CN",21.46,110.77],["Campo Grande","BR",-20.44,-54.65],["Ziyang","CN",30.12,104.65],["Bobo-Dioulasso","BF",11.18,-4.29],["Bahawalpur","PK",29.4,71.68],["Quzhou","CN",28.96,118.87],["Blantyre","MW",-15.78,35.01],["Donetsk","UA",48.02,37.8],["Qom","IR",34.64,50.88],["Bishkek","KG",42.87,74.59],["Abū Ghurayb","IQ",33.31,44.18],["Krasnodar","RU",45.05,38.98],["Natal","BR",-5.79,-35.21],["Pingxiang","CN",27.62,113.85],["Malang","ID",-7.98,112.63],["Cancún","MX",21.17,-86.85],["Indianapolis","US",39.77,-86.16],["Gurugram","IN",28.46,77.03],["Bhubaneswar","IN",20.27,85.83],["Zhoushan","CN",29.99,122.2],["Qiqihar","CN",47.34,123.96],["Mulenvos","AO",-8.87,13.33],["Sulaymaniyah","IQ",35.56,45.43],["Marseille","FR",43.3,5.38],["Bhiwandi","IN",19.3,73.06],["Soshanguve","ZA",-25.47,28.1],["Laiyang","CN",36.98,120.71],["Daye","CN",30.08,114.95],["Teresina","BR",-5.09,-42.8],["Ankang","CN",32.68,109.02],["Jalandhar","IN",31.33,75.58],["Rotterdam","NL",51.92,4.48],["Langfang","CN",39.52,116.71],["Lhasa","CN",29.65,91.1],["Duque de Caxias","BR",-22.79,-43.31],["Viana","AO",-8.91,13.37],["Jiaozuo","CN",35.24,113.24],["Samarinda","ID",-0.49,117.15],["Benxi","CN",41.29,123.77],["Rohini","IN",28.74,77.07],["Wanxian","CN",30.82,108.37],["Guang’an","CN",30.47,106.64],["Johor Bahru","MY",1.47,103.76],["Arifwala","PK",30.29,73.07],["Pasig City","PH",14.59,121.06],["Cheongju-si","KR",36.64,127.49],["Kanayannur","IN",9.97,76.27],["Tegucigalpa","HN",14.08,-87.21],["Bucheon-si","KR",37.5,126.78],["Thanh Hóa","VN",19.8,105.77],["Turin","IT",45.07,7.69],["Al Ain City","AE",24.19,55.76],["Libreville","GA",0.39,9.45],["Saratov","RU",51.54,45.99],["Ulan Bator","MN",47.91,106.88],["Weihai","CN",37.51,122.11],["Takeo","KH",10.99,104.78],["Nova Iguaçu","BR",-22.76,-43.45],["Cochabamba","BO",-17.38,-66.16],["Ahvaz","IR",31.32,48.68],["Vientiane","LA",17.97,102.6],["São Bernardo do Campo","BR",-23.69,-46.56],["Zhabei","CN",31.26,121.46],["Shangyu","CN",30.02,120.87],["Xinyu","CN",27.8,114.93],["Pietermaritzburg","ZA",-29.62,30.39],["Yibin","CN",28.76,104.64],["Naucalpan de Juárez","MX",19.48,-99.24],["Kampung Baru Subang","MY",3.15,101.53],["Bouaké","CI",7.69,-5.03],["Taicang","CN",31.45,121.09],["San Francisco","US",37.77,-122.42],["Sakai","JP",34.58,135.47],["Jiaojiang","CN",28.7,121.47],["Valencia","ES",39.47,-0.38],["Jinshan","CN",30.84,121.29],["Chenzhou","CN",25.8,113.03],["João Pessoa","BR",-7.12,-34.86],["Bukavu","CD",-2.49,28.84],["Kraków","PL",50.06,19.94],["Dandong","CN",40.13,124.39],["Barcelona","VE",10.14,-64.69],["Bangui","CF",4.36,18.55],["Hermosillo","MX",29.09,-110.97],["Bhayandar","IN",19.3,72.85],["Culiacán","MX",24.8,-107.39],["Petaling Jaya","MY",3.11,101.61],["Anqing","CN",30.51,117.05],["Oran","DZ",35.7,-0.64],["Freetown","SL",8.49,-13.24],["San Pedro Sula","HN",15.51,-88.03],["Narela","IN",28.85,77.09],["Xingtai","CN",37.06,114.49],["Niigata","JP",37.92,139.04],["Muscat","OM",23.58,58.41],["Zarqa","JO",32.07,36.09],["Çankaya","TR",39.92,32.86],["Küçükçekmece","TR",40.99,28.77],["Hamamatsu","JP",34.7,137.73],["Kolwezi","CD",-10.71,25.47],["Vinh","VN",18.67,105.69],["Thiruvananthapuram","IN",8.49,76.95],["Zhaotong","CN",27.32,103.72],["Hondlon","CN",40.65,109.79],["Panzhihua","CN",26.59,101.71],["Chuzhou","CN",32.32,118.3],["Seattle","US",47.61,-122.33],["Port Said","EG",31.27,32.3],["Cúcuta","CO",7.91,-72.5],["Homs","SY",34.72,36.73],["Xuancheng","CN",30.95,118.76],["Ibb","YE",13.97,44.18],["Tasikmalaya","ID",-7.33,108.22],["Nampula","MZ",-15.12,39.27],["Bujumbura","BI",-3.38,29.36],["Tyumen","RU",57.15,65.53],["Erzurum","TR",39.91,41.28],["Anshun","CN",26.25,105.93],["Dodoma","TZ",-6.17,35.74],["Rajshahi","BD",24.37,88.6],["Dera Ismail Khan","PK",31.83,70.9],["Sorocaba","BR",-23.5,-47.46],["Wuzhou","CN",23.48,111.29],["Ipoh","MY",4.58,101.08],["Qinhuangdao","CN",39.94,119.59],["Benghazi","LY",32.11,20.07],["Uberlândia","BR",-18.92,-48.28],["Alīgarh","IN",27.88,78.07],["Shaoyang","CN",27.24,111.46],["Malatya","TR",38.35,38.32],["Winnipeg","CA",49.88,-97.15],["Ōta","JP",35.56,139.72],["Andijon","UZ",40.78,72.35],["Bareilly","IN",28.37,79.43],["Buraydah","SA",26.33,43.97],["Hegang","CN",47.35,130.29],["Morelia","MX",19.7,-101.18],["Riga","LV",56.95,24.11],["Zhuanghe","CN",39.7,122.99],["Amsterdam","NL",52.37,4.89],["Cagayan de Oro","PH",8.48,124.65],["Ma’anshan","CN",31.69,118.51],["Shah Alam","MY",3.09,101.53],["Bağcılar","TR",41.04,28.86],["Shizuishan","CN",38.98,106.39],["Kumamoto","JP",32.81,130.69],["Oyo","NG",7.85,3.93],["Serang","ID",-6.12,106.15],["Torreón","MX",25.54,-103.42],["Deyang","CN",31.13,104.38],["Abeokuta","NG",7.16,3.35],["Al Ḩudaydah","YE",14.8,42.95],["Yangquan","CN",37.86,113.56],["Akure","NG",7.25,5.19],["Denver","US",39.74,-104.98],["Osasco","BR",-23.53,-46.79],["Kikolo","AO",-8.78,13.33],["Maianga","AO",-8.85,13.24],["São José dos Campos","BR",-23.18,-45.89],["Álvaro Obregón","MX",19.36,-99.2],["Aihara","JP",35.6,139.32],["Evaton","ZA",-26.53,27.85],["Valenzuela","PH",14.7,120.97],["Muzaffarābād","PK",34.37,73.47],["Okayama","JP",34.65,133.93],["San Luis Potosí","MX",22.15,-100.97],["Aguascalientes","MX",21.88,-102.28],["General Santos","PH",6.11,125.17],["Zhumadian","CN",32.98,114.03],["Morādābād","IN",28.84,78.78],["Sagamihara","JP",35.57,139.24],["Qingshan","CN",40.66,109.88],["Mississauga","CA",43.58,-79.66],["Lviv","UA",49.84,24.02],["Namangan","UZ",41.0,71.67],["Zaporizhzhya","UA",47.85,35.12],["Zanzibar","TZ",-6.16,39.2],["Saltillo","MX",25.43,-100.98],["Latakia","SY",35.53,35.79],["Subang Jaya","MY",3.04,101.58],["Warangal","IN",18.0,79.58],["Paranaque City","PH",14.48,121.02],["Tolyatti","RU",53.53,49.35],["Santo Domingo Oeste","DO",18.5,-70.0],["Santo Domingo Este","DO",18.49,-69.85],["Dhārāvi","IN",19.05,72.87],["Battagram","PK",34.68,73.02],["Suez","EG",29.97,32.53],["Changzhi","CN",35.21,111.74],["Ribeirão Preto","BR",-21.18,-47.81],["Agadir","MA",30.42,-9.6],["Edogawe","JP",35.69,139.87],["Sarajevo","BA",43.85,18.36],["Balikpapan","ID",-1.27,116.83],["Adachi","JP",35.76,139.81],["Changning","CN",31.22,121.42],["Bauchi","NG",10.31,9.84],["Shizuoka","JP",34.98,138.38],["Tunis","TN",36.82,10.17],["Zhangjiakou","CN",40.78,114.87],["Washington","US",38.9,-77.04],["Nashville","US",36.17,-86.78],["Fuxin","CN",42.02,121.66],["Ta’if","SA",21.27,40.42],["Changsha","CN",22.38,112.68],["Huangshi","CN",30.25,115.05],["Liaoyang","CN",41.27,123.17],["Hlaingthaya","MM",16.85,96.07],["Beira","MZ",-19.84,34.84],["Hongkou","CN",31.25,121.49],["Zaragoza","ES",41.66,-0.88],["Sevilla","ES",37.38,-5.97],["Baise","CN",23.89,106.63],["Pontianak","ID",-0.03,109.33],["Situbondo","ID",-7.71,114.01],["Agege","NG",6.62,3.33],["Binzhou","CN",37.37,118.02],["Oklahoma City","US",35.47,-97.52],["Yuncheng","CN",35.02,110.99],["Dezhou","CN",37.45,116.37],["Dushanbe","TJ",38.54,68.78],["Cotonou","BJ",6.37,2.42],["El Paso","US",31.76,-106.49],["Gorakhpur","IN",26.77,83.37],["Guadalupe","MX",25.68,-100.26],["Wrocław","PL",51.1,17.03],["Denpasar","ID",-8.65,115.22],["Guntur","IN",16.3,80.46],["Katsina","NG",12.99,7.6],["Sanmenxia","CN",34.78,111.19],["E’zhou","CN",30.4,114.89],["Madīnat an Naşr","EG",30.07,31.3],["Camama","AO",-8.94,13.27],["Tabuk","SA",28.4,36.57],["Kitwe","ZM",-12.8,28.21],["Bulawayo","ZW",-20.15,28.58],["Mudanjiang","CN",44.55,129.63],["Aracaju","BR",-10.91,-37.07],["Joinville","BR",-26.3,-48.85],["Athens","GR",37.98,23.73],["Zagreb","HR",45.81,15.98],["Leshan","CN",29.56,103.76],["Santo André","BR",-23.66,-46.54],["Vancouver","CA",49.25,-123.12],["Rizhao","CN",35.41,119.53],["Helsinki","FI",60.17,24.94],["Cheonan","KR",36.81,127.15],["Acapulco de Juárez","MX",16.85,-99.91],["Dongcun","CN",36.78,121.16],["Banjarmasin","ID",-3.32,114.59],["Puducherry","IN",11.93,79.83],["Suining","CN",30.51,105.57],["Brampton","CA",43.68,-79.77],["Huangpu","CN",31.24,121.48],["Golfe","AO",-8.87,13.26],["Puyang","CN",35.76,115.04],["Soacha","CO",4.58,-74.22],["Boston","US",42.36,-71.06],["Tlalnepantla","MX",19.54,-99.2],["Jājmau","IN",26.43,80.41],["Portland","US",45.52,-122.68],["Calumbo","AO",-9.15,13.42],["Tlaquepaque","MX",20.64,-103.29],["Frankfurt am Main","DE",50.12,8.68],["Macau","MO",22.2,113.55],["Palermo","IT",38.12,13.36],["Izhevsk","RU",56.85,53.2],["Colombo","LK",6.94,79.85],["Maturín","VE",9.75,-63.18],["Amravati","IN",20.93,77.75],["Lingyuan","CN",41.24,119.4],["Detroit","US",42.33,-83.05],["Osogbo","NG",7.77,4.56],["Mingguang","CN",32.78,117.96],["Honchō","JP",35.7,139.99],["Bikaner","IN",28.02,73.31],["Jaboatão dos Guararapes","BR",-8.11,-35.01],["Hoji ya Henda","AO",-8.81,13.29],["Las Vegas","US",36.17,-115.14],["New South Memphis","US",35.09,-90.06],["Hwaseong-si","KR",37.21,126.82],["Gold Coast","AU",-28.0,153.43],["Łódź","PL",51.77,19.47],["Jeonju","KR",35.82,127.15],["Chongming","CN",31.62,121.7],["Al Aḩmadī","KW",29.08,48.08],["Cuenca","EC",-2.9,-79.0],["Chisinau","MD",47.01,28.86],["Likasi","CD",-10.98,26.74],["Jambi City","ID",-1.6,103.62],["Hebi","CN",35.73,114.29],["Comilla","BD",23.46,91.19],["Tshikapa","CD",-6.42,20.8],["Chunian","PK",30.97,73.98],["Kochi","IN",9.94,76.26],["Memphis","US",35.15,-90.05],["Jingmen","CN",31.03,112.2],["Barnaul","RU",53.36,83.73],["Piura","PE",-5.18,-80.66],["Siping","CN",43.16,124.38],["Bhilai","IN",21.21,81.43],["Ndola","ZM",-12.96,28.64],["Contagem","BR",-19.93,-44.05],["Ulyanovsk","RU",54.33,48.39],["Djibouti","DJ",11.59,43.15],["Glasgow","GB",55.87,-4.26],["Panshan","CN",41.19,122.05],["Louisville","US",38.25,-85.76],["Irkutsk","RU",52.3,104.29],["Ansan-si","KR",37.32,126.82],["Al Mansurah","EG",31.04,31.38],["Kermanshah","IR",34.31,47.06],["Jiaozhou","CN",36.28,120.0],["Düsseldorf","DE",51.22,6.78],["Suizhou","CN",31.71,113.36],["Villa Nueva","GT",14.53,-90.59],["Khabarovsk","RU",48.46,135.1],["Cuiabá","BR",-15.6,-56.1],["Arusha","TZ",-3.37,36.68],["Feira de Santana","BR",-12.27,-38.97],["Las Piñas","PH",14.45,120.98],["Chizhou","CN",30.66,117.48],["Coyoacán","MX",19.35,-99.16],["Stuttgart","DE",48.78,9.18],["Ya'an","CN",29.99,103.0],["Cuttack","IN",20.46,85.88],["Borivli","IN",19.23,72.86],["Chiclayo","PE",-6.77,-79.85],["Yaroslavl","RU",57.63,39.87],["Gothenburg","SE",57.71,11.97],["Kawaguchi","JP",35.81,139.71],["Bukit Rahman Putra","MY",3.22,101.56],["Jhang Sadr","PK",31.27,72.32],["Ha'il","SA",27.52,41.69],["Bhavnagar","IN",21.76,72.15],["Benoni","ZA",-26.19,28.32],["Vladivostok","RU",43.11,131.87],["Tuxtla","MX",16.75,-93.12],["Kryvyy Rih","UA",47.91,33.39],["Sanming","CN",26.25,117.62],["Islamabad","PK",33.72,73.04],["Sāngli","IN",16.85,74.56],["Jamnagar","IN",22.47,70.07],["Lubango","AO",-14.92,13.49],["Pokhara","NP",28.27,83.97],["Shuangyashan","CN",46.68,131.13],["Borama","SO",9.94,43.18],["Pallabi","BD",23.82,90.37],["Luancheng","CN",37.88,114.65],["Makhachkala","RU",42.98,47.5],["Anyang-si","KR",37.39,126.93],["Huambo","AO",-12.78,15.74],["Samarkand","UZ",39.65,66.96],["Mengzi","CN",23.37,103.38],["Kagoshima","JP",31.57,130.55],["Mukalla","YE",14.54,49.12],["Rasht","IR",37.28,49.59],["Mar del Plata","AR",-38.0,-57.56],["Essen","DE",51.46,7.01],["Al Maḩallah al Kubrá","EG",30.97,31.17],["Málaga","ES",36.72,-4.42],["Shekhupura","PK",31.71,73.99],["Yingkou","CN",40.66,122.23],["Zhangzhou","CN",24.51,117.66]];
+let cityMode=false;
+
+/* --- prayer time math (PrayTimes.org algorithm, public domain; MWL Fajr 18°) --- */
+const DR=Math.PI/180;
+const dSin=d=>Math.sin(d*DR), dCos=d=>Math.cos(d*DR);
+const dAsin=x=>Math.asin(x)/DR, dAcos=x=>Math.acos(x)/DR, dAtan2=(y,x)=>Math.atan2(y,x)/DR;
+const fix360=a=>((a%360)+360)%360, fix24=h=>((h%24)+24)%24;
+function julianDay(y,m,d){ if(m<=2){y--;m+=12;} const A=Math.floor(y/100);
+  return Math.floor(365.25*(y+4716))+Math.floor(30.6001*(m+1))+d+(2-A+Math.floor(A/4))-1524.5; }
+function sunPos(jd){ const D=jd-2451545.0;
+  const g=fix360(357.529+0.98560028*D), q=fix360(280.459+0.98564736*D);
+  const L=fix360(q+1.915*dSin(g)+0.020*dSin(2*g)), e=23.439-0.00000036*D;
+  const RA=dAtan2(dCos(e)*dSin(L),dCos(L))/15;
+  let eqt=q/15-fix24(RA); if(eqt>12)eqt-=24; if(eqt<-12)eqt+=24;
+  return {decl:dAsin(dSin(e)*dSin(L)), eqt}; }
+function fajrHA(lat,decl,angle){
+  const c=(-dSin(angle)-dSin(decl)*dSin(lat))/(dCos(decl)*dCos(lat));
+  if(c<-1||c>1) return NaN; return dAcos(c)/15; }
+function fmtHours(h){ if(!isFinite(h)) return null; h=fix24(h);
+  let hh=Math.floor(h), mm=Math.round((h-hh)*60);
+  if(mm===60){hh=(hh+1)%24;mm=0;}
+  return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'); }
+function calcFajr(lat,lng,tz,date,angle=18){
+  const jd=julianDay(date.getFullYear(),date.getMonth()+1,date.getDate())-lng/(15*24);
+  let sp=sunPos(jd);
+  let fajr=fix24(12-sp.eqt-fajrHA(lat,sp.decl,angle));
+  sp=sunPos(jd+fajr/24);                                   // refine once
+  fajr=fix24(12-sp.eqt-fajrHA(lat,sp.decl,angle));
+  return fmtHours(fajr+tz-lng/15);
+}
+const deviceTz=()=>-new Date().getTimezoneOffset()/60;
+
+/* Fajr for a place: Aladhan API (accurate, cached per day) → offline astronomy fallback */
+async function fajrFor(lat,lng){
+  const d=new Date();
+  const ds=`${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+  const key=`fajr|${lat.toFixed(2)}|${lng.toFixed(2)}|${ds}`;
+  try{ const c=localStorage.getItem(key); if(c) return c; }catch(e){}
+  try{
+    const r=await fetch(`https://api.aladhan.com/v1/timings/${ds}?latitude=${lat}&longitude=${lng}&method=3`);
+    if(r.ok){ const j=await r.json(); const t=(j.data.timings.Fajr||'').slice(0,5);
+      if(/^\d{2}:\d{2}$/.test(t)){ try{localStorage.setItem(key,t);}catch(e){} return t; } }
+  }catch(e){}
+  return calcFajr(lat,lng,Math.round(lng/15*2)/2,d);
+}
+
+/* --- alarm state (persisted) --- */
+let alarm={on:false,city:-1,time:null,day:null,rungKey:null};
+try{ const s=localStorage.getItem('fajrAlarm'); if(s) alarm=Object.assign(alarm,JSON.parse(s)); }catch(e){}
+function saveAlarm(){ try{localStorage.setItem('fajrAlarm',JSON.stringify(alarm));}catch(e){} }
+
+/* --- alarm sound (Web Audio chime) --- */
+let audioCtx=null, ringTimer=null, ringing=false;
+function chime(){
+  try{
+    audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    [880,659.3,880,1174.7,987.8].forEach((f,i)=>{
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type='sine'; o.frequency.value=f;
+      const t=audioCtx.currentTime+i*0.33;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.3,t+0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.3);
+      o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+0.33);
+    });
+  }catch(e){}
+}
+function startRing(){
+  ringing=true; chime(); ringTimer=setInterval(chime,2200);
+  fStopBtn.style.display=''; fajrBtn.classList.add('ringing');
+  toast(`🕌 Fajr time! ${alarm.time}${alarm.city>=0?' · '+CITIES[alarm.city][0]:''} — tap 🕌 to stop`);
+  openFajrPanel(alarm.city);
+}
+function stopRing(){ ringing=false; clearInterval(ringTimer);
+  fStopBtn.style.display='none'; fajrBtn.classList.remove('ringing'); }
+
+/* --- panel --- */
+const fajrBtn=document.getElementById('fajrBtn'), cityBtn=document.getElementById('cityBtn');
+const fajrPanel=document.getElementById('fajrPanel'), fLoc=document.getElementById('fLoc'),
+      fTime=document.getElementById('fTime'), fCount=document.getElementById('fCount'),
+      fAlarmState=document.getElementById('fAlarmState'), fSearch=document.getElementById('fSearch'),
+      fResults=document.getElementById('fResults'), fStopBtn=document.getElementById('fStop');
+let panelCity=-1, lastPanelTime=null, userLoc=null, geoTried=false;
+
+function openFajrPanel(cityIdx=-1){
+  panelCity=cityIdx;
+  fajrPanel.style.display='flex';
+  if(panelCity<0 && !userLoc) detectLocation();
+  refreshFajrPanel();
+}
+function detectLocation(){
+  if(geoTried||!navigator.geolocation) return; geoTried=true;
+  navigator.geolocation.getCurrentPosition(
+    pos=>{ userLoc={lat:pos.coords.latitude,lng:pos.coords.longitude}; if(panelCity<0) refreshFajrPanel(); },
+    ()=>{ if(panelCity<0) fLoc.textContent='📍 Location unavailable — search a city below'; },
+    {timeout:9000});
+}
+async function refreshFajrPanel(){
+  const target=panelCity;
+  fLoc.textContent = target>=0 ? `🏙️ ${CITIES[target][0]}, ${CITIES[target][1]} · point #${target+1}` : '📍 My location';
+  fTime.textContent='…'; lastPanelTime=null;
+  let t=null;
+  if(target>=0){ const c=CITIES[target]; t=await fajrFor(c[2],c[3]); }
+  else if(userLoc){ t=calcFajr(userLoc.lat,userLoc.lng,deviceTz(),new Date()); }
+  if(target!==panelCity) return;               // user switched while loading
+  if(t){ fTime.textContent=t; lastPanelTime=t; }
+  else fTime.textContent = (target<0 && !userLoc) ? '—' : 'n/a';
+  updateAlarmStateLbl(); updateCountdown();
+}
+function updateAlarmStateLbl(){
+  fAlarmState.textContent = alarm.on&&alarm.time
+    ? `Alarm: ON · ${alarm.time} (${alarm.city>=0?CITIES[alarm.city][0]:'my location'})`
+    : 'Alarm: off';
+  fajrBtn.textContent = alarm.on ? '🕌 Fajr 🔔' : '🕌 Fajr';
+}
+function updateCountdown(){
+  if(!(alarm.on&&alarm.time)){ fCount.textContent='—'; return; }
+  const [h,m]=alarm.time.split(':').map(Number);
+  const now=new Date(); let t=new Date(now); t.setHours(h,m,0,0);
+  if(t<=now) t=new Date(t.getTime()+86400000);
+  const s=Math.floor((t-now)/1000);
+  fCount.textContent=`⏳ Fajr in ${Math.floor(s/3600)}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+/* recompute the alarm's Fajr time once per day */
+async function ensureAlarmTimeToday(){
+  if(!alarm.on) return;
+  const today=new Date().toDateString();
+  if(alarm.day===today && alarm.time) return;
+  let t=null;
+  if(alarm.city>=0){ const c=CITIES[alarm.city]; t=await fajrFor(c[2],c[3]); }
+  else if(userLoc){ t=calcFajr(userLoc.lat,userLoc.lng,deviceTz(),new Date()); }
+  if(t){ alarm.time=t; alarm.day=today; saveAlarm(); updateAlarmStateLbl(); }
+}
+let alarmBusy=false;
+async function alarmTick(){
+  if(!alarmBusy){ alarmBusy=true; try{ await ensureAlarmTimeToday(); }finally{ alarmBusy=false; } }
+  if(alarm.on && alarm.time && !ringing){
+    const now=new Date();
+    const hm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    const key=now.toDateString()+hm;
+    if(hm===alarm.time && alarm.rungKey!==key){
+      alarm.rungKey=key; saveAlarm(); startRing();
+    }
+  }
+  if(fajrPanel.style.display==='flex') updateCountdown();
+}
+
+/* --- panel buttons --- */
+document.getElementById('fSet').onclick=()=>{
+  if(!lastPanelTime){ toast('Fajr time not available yet — pick a city or allow location'); return; }
+  alarm.on=true; alarm.city=panelCity; alarm.time=lastPanelTime; alarm.day=new Date().toDateString();
+  saveAlarm(); updateAlarmStateLbl();
+  toast(`🔔 Fajr alarm set for ${alarm.time}${panelCity>=0?' · '+CITIES[panelCity][0]:''}`);
+};
+document.getElementById('fOff').onclick=()=>{ alarm.on=false; saveAlarm(); updateAlarmStateLbl(); toast('Alarm off'); };
+document.getElementById('fTest').onclick=()=>chime();
+fStopBtn.onclick=stopRing;
+document.getElementById('fMyLoc').onclick=()=>{ panelCity=-1; if(!userLoc) detectLocation(); refreshFajrPanel(); };
+document.getElementById('fClose').onclick=()=>fajrPanel.style.display='none';
+fajrBtn.onclick=()=>{ if(ringing) stopRing(); openFajrPanel(); };
+
+/* city search */
+fSearch.oninput=()=>{
+  const q=fSearch.value.trim().toLowerCase();
+  fResults.innerHTML='';
+  if(q.length<2) return;
+  let shown=0;
+  for(let i=0;i<CITIES.length&&shown<12;i++){
+    if(CITIES[i][0].toLowerCase().includes(q)){
+      const idx=i, c=CITIES[i];
+      const b=document.createElement('button');
+      b.textContent=`#${idx+1} · ${c[0]}, ${c[1]}`;
+      b.onclick=()=>{ panelCity=idx; fSearch.value=''; fResults.innerHTML=''; refreshFajrPanel(); };
+      fResults.appendChild(b); shown++;
+    }
+  }
+  if(!shown) fResults.innerHTML='<div class="fsub">no match — try another spelling</div>';
+};
+
+cityBtn.onclick=()=>{
+  cityMode=!cityMode; cityBtn.classList.toggle('on',cityMode);
+  toast(cityMode ? '🏙️ City mode ON — every point is one of the world’s 1000 largest cities; hover or click for its Fajr'
+                 : 'City mode off');
+};
+
+updateAlarmStateLbl();
+
 /* ================= UI / hours ================= */
 function setHour(h){
   hour=((h-1+12)%12)+1;
@@ -630,6 +864,7 @@ setInterval(()=>{
   const ss=String(secsToNext%60).padStart(2,'0');
   document.getElementById('cd').textContent=live?`${mm}:${ss}`:'manual';
   if(live){ const h=liveHour(); if(h!==hour) setHour(h); }
+  alarmTick();
 },500);
 
 /* ================= Main loops ================= */

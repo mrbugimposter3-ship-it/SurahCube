@@ -18,6 +18,19 @@ tying each hour of the day to surahs of the Quran.
 - Hovering any point shows **point # mod 114** and its cube root.
 - **🎲 Random point** button picks a point for you.
 
+## 🕌 Fajr alarm clock + 1000-cities square
+
+- Each point **#1–1000 is also one of the world's 1000 largest cities**
+  (GeoNames data, ranked by population) — the "1000 cities" number square.
+- **🏙️ City mode**: hover/click any point to see its city; click to jump to
+  that city's Fajr time and set the alarm.
+- **🕌 Fajr alarm**: uses your device location (or any of the 1000 cities),
+  shows a live countdown, and rings a chime at Fajr.
+- Times use the **Muslim World League 18°** method — via
+  [Aladhan API](https://aladhan.com/prayer-times-api) when online (cached per
+  day), with a built-in astronomical calculation (PrayTimes.org algorithm) as
+  offline fallback. Approximate ±2 min — always confirm with your local masjid.
+
 ## Built-in Quran reader 📖
 
 Click any point and choose:
