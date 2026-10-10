@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surah Cube — 1000 Points</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1020; --panel:#131a30; --panel2:#0e1426; --line:#26304f;
+    --txt:#dfe6f5; --dim:#8a96b5; --accent:#ff9f43; --gold:#ffd166;
+    --green:#2ecc71; --blue:#4da3ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+    font-family:"Segoe UI",system-ui,sans-serif}
+  #app{display:flex;flex-direction:column;height:100%}
+  #topbar{display:flex;align-items:center;gap:12px;padding:8px 14px;
+    background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #topbar h1{font-size:16px;font-weight:600;letter-spacing:.5px}
+  #topbar h1 span{color:var(--accent)}
+  .clockbox{display:flex;align-items:center;gap:8px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;padding:5px 10px}
+  .clockbox .big{font-size:18px;font-weight:700;min-width:86px;text-align:center}
+  button{background:#1d2742;color:var(--txt);border:1px solid var(--line);
+    border-radius:7px;padding:5px 10px;cursor:pointer;font-size:13px}
+  button:hover{background:#273457}
+  button.on{background:var(--blue);border-color:var(--blue);color:#04122b;font-weight:600}
+  .stat{font-size:13px;color:var(--dim)}
+  .stat b{color:var(--txt);font-size:15px}
+  #main{flex:1;display:flex;min-height:0}
+  #stage{flex:1;position:relative;min-width:0}
+  canvas{display:block;width:100%;height:100%;cursor:grab}
+  canvas.drag{cursor:grabbing}
+  #side{width:250px;background:var(--panel);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;min-height:0}
+  #side h2{font-size:12px;text-transform:uppercase;letter-spacing:1px;
+    color:var(--dim);padding:10px 12px 4px}
+  #surahlist{overflow-y:auto;flex:1;padding:0 8px 10px}
+  .srow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;
+    cursor:pointer;border:1px solid transparent}
+  .srow:hover{background:#1a2340}
+  .srow.hl{border-color:var(--accent);background:#241d10}
+  .srow .num{font-weight:700;width:44px}
+  .srow .info{flex:1;font-size:11px;color:var(--dim)}
+  .srow .bar{height:5px;background:#0a0f1f;border-radius:3px;margin-top:3px;overflow:hidden}
+  .srow .bar i{display:block;height:100%;background:var(--green);width:0%}
+  .srow.wild .num{color:var(--gold)}
+  #legend{padding:8px 12px;border-top:1px solid var(--line);font-size:11px;color:var(--dim)}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  #tip{position:absolute;pointer-events:none;background:rgba(10,14,28,.95);
+    border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:12px;
+    display:none;z-index:10;max-width:250px;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+  #tip .pnum{font-size:19px;font-weight:700}
+  #tip .mod{color:var(--gold);font-weight:600;font-size:13px;margin-top:1px}
+  #tip .row{color:var(--dim);margin-top:4px;line-height:1.45}
+  #tip .row b{color:var(--txt)}
+  #toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);
+    background:rgba(10,14,28,.95);border:1px solid var(--line);border-radius:8px;
+    padding:7px 16px;font-size:13px;display:none;z-index:60}
+  #help{position:absolute;left:12px;bottom:10px;font-size:11px;color:var(--dim);z-index:5}
+
+  /* ---------- action sheet ---------- */
+  #sheet{position:absolute;display:none;z-index:50;width:280px;background:rgba(12,17,33,.97);
+    border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 10px 34px rgba(0,0,0,.6)}
+  #sheet .ph{font-size:15px;font-weight:700;margin-bottom:2px}
+  #sheet .pm{font-size:12px;color:var(--gold);margin-bottom:8px}
+  #sheet button{display:block;width:100%;text-align:left;margin:5px 0;padding:8px 10px;
+    font-size:13px;border-radius:8px}
+  #sheet button.read{background:#15304a;border-color:#2c567f}
+  #sheet button.read:hover{background:#1b3d5e}
+  #sheet button.care{background:#123c27;border-color:#2a7a4d}
+  #sheet button.care:hover{background:#185032}
+  #sheet button.close{background:transparent;color:var(--dim)}
+
+  /* ---------- Quran reader ---------- */
+  #quran{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;
+    --paper:#f4efe1; --ink:#2e4632; --card:rgba(244,239,225,.9); --cardline:#c9c0a4;}
+  #quran.theme-forest{--paper:#eef0e2; --ink:#2e5233; --card:rgba(243,244,230,.92); --cardline:#b8c4a3}
+  #quran.theme-desert{--paper:#f6ead2; --ink:#7a4a21; --card:rgba(248,238,216,.92); --cardline:#dcc398}
+  #quran.theme-mountains{--paper:#e9edf2; --ink:#33465e; --card:rgba(236,240,246,.92); --cardline:#b3bfd0}
+  #quran.theme-plain{--paper:#f2f2f2; --ink:#333; --card:rgba(250,250,250,.94); --cardline:#ccc}
+  #qbg{position:absolute;inset:0;background:var(--paper)}
+  #qbg svg{position:absolute;inset:0;width:100%;height:100%}
+  #qtop{position:relative;z-index:3;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:10px 16px;background:var(--card);border-bottom:2px solid var(--cardline);
+    color:var(--ink)}
+  #qtop .title{font-size:17px;font-weight:700}
+  #qtop .title .ar{font-family:Amiri,serif;font-size:22px;margin-left:8px}
+  #qtop button{background:transparent;color:var(--ink);border:1px solid var(--ink);border-radius:7px;
+    padding:5px 10px;font-size:13px}
+  #qtop button.on{background:var(--ink);color:var(--paper)}
+  #qtop label{font-size:12px;display:flex;align-items:center;gap:6px}
+  #qtop input[type=range]{width:110px;accent-color:var(--ink)}
+  #qscroll{position:relative;z-index:2;flex:1;overflow-y:auto;padding:20px}
+  #qcard{max-width:820px;margin:0 auto;background:var(--card);border:2px solid var(--cardline);
+    border-radius:14px;padding:28px 34px 40px;color:var(--ink);
+    box-shadow:0 8px 30px rgba(0,0,0,.15)}
+  #qcard .bismillah{font-family:Amiri,serif;font-size:calc(var(--qf,22px)*1.5);text-align:center;
+    margin:6px 0 18px;direction:rtl}
+  .ayah{margin:0 0 26px;padding-bottom:18px;border-bottom:1px dashed var(--cardline)}
+  .ayah .ar{font-family:Amiri,"Scheherazade New",serif;font-size:calc(var(--qf,22px)*1.6);
+    line-height:2.1;direction:rtl;text-align:right}
+  .ayah .anum{display:inline-block;min-width:34px;height:34px;line-height:34px;text-align:center;
+    border:1.6px solid var(--ink);border-radius:50%;font-size:calc(var(--qf,22px)*.62);margin-right:8px;
+    vertical-align:middle;font-family:"Segoe UI",sans-serif}
+  .ayah .en{font-size:calc(var(--qf,22px)*.82);line-height:1.55;margin-top:10px;opacity:.92}
+  .ayah .ur{font-family:"Noto Nastaliq Urdu","Urdu Typesetting",serif;
+    font-size:calc(var(--qf,22px)*1.02);line-height:2.2;direction:rtl;text-align:right;margin-top:8px;opacity:.92}
+  .ayah .tag{font-size:11px;opacity:.55;margin-top:6px}
+  #qstatus{position:relative;z-index:3;padding:6px 16px;background:var(--card);
+    border-top:2px solid var(--cardline);color:var(--ink);font-size:12px;
+    display:flex;align-items:center;gap:14px}
+  #qprog{flex:1;height:6px;background:rgba(0,0,0,.12);border-radius:3px;overflow:hidden}
+  #qprog i{display:block;height:100%;background:var(--ink);width:0%}
+  #qload{display:none;position:absolute;inset:0;z-index:5;align-items:center;justify-content:center;
+    color:var(--ink);font-size:16px;background:var(--paper);text-align:center;padding:30px}
+  @media (max-width:700px){ #side{display:none} #qcard{padding:18px 16px 30px} }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <h1>Surah Cube <span>· 1000 points</span></h1>
+    <div class="clockbox">
+      <button id="prevH">◀</button>
+      <div class="big" id="hourLbl">—</div>
+      <button id="nextH">▶</button>
+    </div>
+    <button id="liveBtn" class="on">Live clock</button>
+    <button id="randBtn">🎲 Random point</button>
+    <div class="stat">Surahs: <b id="rangeLbl">—</b></div>
+    <div class="stat">Next hour: <b id="cd">—</b></div>
+    <div class="stat">Due: <b id="dueLbl">0</b></div>
+    <div class="stat">Cleared: <b id="clrLbl">0</b></div>
+    <div class="stat">Score: <b id="scoreLbl">0</b></div>
+    <button id="rotBtn" class="on">Auto-rotate</button>
+  </div>
+  <div id="main">
+    <div id="stage">
+      <canvas id="cv"></canvas>
+      <div id="tip"></div>
+      <div id="toast"></div>
+      <div id="sheet"></div>
+      <div id="help">Drag to rotate · Scroll to zoom · Click a point to read its surah (mod 114 or ∛) · 🎲 picks a random point</div>
+    </div>
+    <div id="side">
+      <h2>This hour's surahs</h2>
+      <div id="surahlist"></div>
+      <div id="legend">
+        <span class="dot" style="background:var(--accent)"></span>Due this hour&nbsp;&nbsp;
+        <span class="dot" style="background:var(--gold)"></span>Wildcards 109–114<br>
+        <span class="dot" style="background:var(--green)"></span>Taken care of&nbsp;&nbsp;
+        <span class="dot" style="background:#66739a"></span>Idle
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= QURAN READER ================= -->
+<div id="quran" class="theme-forest">
+  <div id="qbg">
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <defs>
+        <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="7" result="n"/>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="7"/>
+        </filter>
+      </defs>
+
+      <!-- FOREST -->
+      <g id="scForest" filter="url(#rough)" fill="none" stroke="#2e5233" stroke-width="3" stroke-linecap="round">
+        <path d="M0,705 Q300,682 600,702 T1200,690" opacity=".7"/>
+        <g opacity=".85">
+          <path d="M60,700 L120,520 L180,700 Z"/><path d="M82,610 L120,520 L158,610"/>
+          <path d="M115,700 L115,720 M125,700 L125,720"/>
+          <path d="M230,700 L275,575 L320,700 Z"/><path d="M270,700 L270,717 M280,700 L280,717"/>
+          <path d="M380,700 L455,485 L530,700 Z"/><path d="M408,600 L455,485 L502,600"/>
+          <path d="M448,700 L448,722 M462,700 L462,722"/>
+          <path d="M690,700 L740,565 L790,700 Z"/><path d="M733,700 L733,716 M745,700 L745,716"/>
+          <path d="M860,700 L930,510 L1000,700 Z"/><path d="M888,605 L930,510 L972,605"/>
+          <path d="M923,700 L923,721 M937,700 L937,721"/>
+          <path d="M1060,700 L1105,585 L1150,700 Z"/><path d="M1098,700 L1098,715 M1110,700 L1110,715"/>
+        </g>
+        <circle cx="985" cy="130" r="52"/>
+        <path d="M955,120 A45,45 0 0,1 1015,110" opacity=".6"/>
+        <circle cx="150" cy="120" r="3"/><circle cx="300" cy="70" r="2.5"/>
+        <circle cx="520" cy="140" r="2.5"/><circle cx="700" cy="60" r="3"/>
+        <circle cx="830" cy="180" r="2"/><circle cx="420" cy="40" r="2"/>
+        <path d="M560,250 q10,-13 20,0 q10,-13 20,0"/>
+        <path d="M640,290 q8,-10 16,0 q8,-10 16,0"/>
+      </g>
+
+      <!-- DESERT -->
+      <g id="scDesert" filter="url(#rough)" fill="none" stroke="#7a4a21" stroke-width="3" stroke-linecap="round" style="display:none">
+        <circle cx="950" cy="150" r="66"/>
+        <path d="M950,55 L950,30 M1035,90 L1055,72 M1040,170 L1066,178 M1010,235 L1022,258 M890,235 L878,258 M862,165 L838,172 M868,92 L848,74"/>
+        <path d="M-20,660 Q280,560 620,645 T1240,615" opacity=".85"/>
+        <path d="M-20,740 Q330,665 720,742 T1260,712" opacity=".85"/>
+        <path d="M180,640 q60,-14 120,4 M700,700 q70,-16 140,2 M420,618 q50,-12 100,2" opacity=".5"/>
+        <path d="M205,640 L205,480 M205,540 Q160,540 160,500 M160,500 L160,470 M205,580 Q255,580 255,535 M255,535 L255,505"/>
+        <path d="M196,640 L196,485 M214,640 L214,485" opacity=".5"/>
+        <path d="M1065,690 L1065,585 M1065,625 Q1035,625 1035,598 M1035,598 L1035,578 M1065,650 Q1095,650 1095,618 M1095,618 L1095,600" opacity=".8"/>
+        <path d="M480,330 q10,-13 20,0 q10,-13 20,0 M560,370 q8,-10 16,0 q8,-10 16,0"/>
+      </g>
+
+      <!-- MOUNTAINS -->
+      <g id="scMountains" filter="url(#rough)" fill="none" stroke="#33465e" stroke-width="3" stroke-linecap="round" style="display:none">
+        <path d="M-20,700 L230,330 L360,520 L590,180 L770,520 L930,340 L1240,700" opacity=".9"/>
+        <path d="M230,330 L268,400 M230,330 L196,395 M212,375 L250,378" opacity=".8"/>
+        <path d="M590,180 L640,270 M590,180 L545,265 M566,240 L616,243" opacity=".8"/>
+        <path d="M930,340 L968,408 M930,340 L895,405" opacity=".7"/>
+        <path d="M300,560 l40,-60 M340,585 l35,-50 M660,420 l45,-70 M700,455 l38,-55" opacity=".4"/>
+        <path d="M-20,712 L1240,712" opacity=".6"/>
+        <path d="M120,150 q30,-28 60,0 q28,-24 56,0 q24,-20 48,0" opacity=".6"/>
+        <path d="M820,100 q26,-24 52,0 q24,-20 48,0 q20,-17 40,0" opacity=".6"/>
+        <path d="M420,240 q10,-13 20,0 q10,-13 20,0 M490,280 q8,-10 16,0 q8,-10 16,0"/>
+        <circle cx="1080" cy="110" r="42" opacity=".7"/>
+      </g>
+    </svg>
+  </div>
+
+  <div id="qtop">
+    <button id="qback">← Back to cube</button>
+    <div class="title" id="qtitle">Surah —</div>
+    <button id="qplay">⏸ Pause</button>
+    <label>Speed <input type="range" id="qspeed" min="0.25" max="4" step="0.25" value="1">
+      <b id="qspeedLbl">1×</b></label>
+    <label>Size <input type="range" id="qfont" min="16" max="40" step="1" value="22">
+      <b id="qfontLbl">22</b></label>
+    <label>Scene:</label>
+    <button class="themebtn on" data-t="forest">🌲 Forest</button>
+    <button class="themebtn" data-t="desert">🏜️ Desert</button>
+    <button class="themebtn" data-t="mountains">⛰️ Mountains</button>
+    <button class="themebtn" data-t="plain">▫️ Plain</button>
+  </div>
+
+  <div id="qscroll"><div id="qcard"></div></div>
+
+  <div id="qstatus">
+    <span id="qpace">pace ≈ 17 min / juz</span>
+    <div id="qprog"><i></i></div>
+    <span id="qpct">0%</span>
+  </div>
+  <div id="qload">Loading surah…<br><small style="opacity:.6">(needs internet the first time — then cached)</small></div>
+</div>
+
+<script>
+"use strict";
+/* ================= Quran metadata (verified: 6236 ayahs) ================= */
+const SURAH_NAMES = ["Al-Fatihah","Al-Baqarah","Aal-Imran","An-Nisa","Al-Ma'idah","Al-An'am","Al-A'raf","Al-Anfal","At-Tawbah","Yunus","Hud","Yusuf","Ar-Ra'd","Ibrahim","Al-Hijr","An-Nahl","Al-Isra","Al-Kahf","Maryam","Ta-Ha","Al-Anbiya","Al-Hajj","Al-Mu'minun","An-Nur","Al-Furqan","Ash-Shu'ara","An-Naml","Al-Qasas","Al-Ankabut","Ar-Rum","Luqman","As-Sajdah","Al-Ahzab","Saba","Fatir","Ya-Sin","As-Saffat","Sad","Az-Zumar","Ghafir","Fussilat","Ash-Shura","Az-Zukhruf","Ad-Dukhan","Al-Jathiyah","Al-Ahqaf","Muhammad","Al-Fath","Al-Hujurat","Qaf","Adh-Dhariyat","At-Tur","An-Najm","Al-Qamar","Ar-Rahman","Al-Waqi'ah","Al-Hadid","Al-Mujadila","Al-Hashr","Al-Mumtahanah","As-Saff","Al-Jumu'ah","Al-Munafiqun","At-Taghabun","At-Talaq","At-Tahrim","Al-Mulk","Al-Qalam","Al-Haqqah","Al-Ma'arij","Nuh","Al-Jinn","Al-Muzzammil","Al-Muddaththir","Al-Qiyamah","Al-Insan","Al-Mursalat","An-Naba","An-Nazi'at","Abasa","At-Takwir","Al-Infitar","Al-Mutaffifin","Al-Inshiqaq","Al-Buruj","At-Tariq","Al-A'la","Al-Ghashiyah","Al-Fajr","Al-Balad","Ash-Shams","Al-Layl","Ad-Duha","Ash-Sharh","At-Tin","Al-Alaq","Al-Qadr","Al-Bayyinah","Az-Zalzalah","Al-Adiyat","Al-Qari'ah","At-Takathur","Al-Asr","Al-Humazah","Al-Fil","Quraysh","Al-Ma'un","Al-Kawthar","Al-Kafirun","An-Nasr","Al-Masad","Al-Ikhlas","Al-Falaq","An-Nas"];
+const SURAH_AYAHS = [7,286,200,176,120,165,206,75,129,109,123,111,43,52,99,128,111,110,98,135,112,78,118,64,77,227,93,88,69,60,34,30,73,54,45,83,182,88,75,85,54,53,89,59,37,35,38,29,18,45,60,49,62,55,78,96,29,22,24,13,14,11,11,18,12,12,30,52,52,44,28,28,20,56,40,31,50,40,46,42,29,19,36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,11,8,3,9,5,4,7,3,6,3,5,4,5,6];
+const TOTAL_AYAHS = 6236;
+
+/* ================= Game rules ================= */
+const TOTAL = 1000, MODULUS = 114;
+const WILDS = [109,110,111,112,113,114];
+const hourSurahs = h => { const s = 9*(h-1)+1; return Array.from({length:9},(_,i)=>s+i); };
+const liveHour = () => { const h = new Date().getHours()%12; return h===0?12:h; };
+const modSurah = n => { const m = n % MODULUS; return m===0 ? 114 : m; };
+const cbrtSurah = n => Math.max(1, Math.round(Math.cbrt(n)));
+
+let hour = liveHour();
+let live = true;
+let autoRotate = true;
+let score = 0;
+let cleared = new Set();
+let highlightSurah = null;
+let dueInfo = [], dueCount = 0;
+
+function computeDue(){
+  const act = hourSurahs(hour).concat(WILDS);
+  dueInfo = new Array(TOTAL+1);
+  dueCount = 0;
+  for(let n=1;n<=TOTAL;n++){
+    const hits = act.filter(s => n % s === 0);
+    dueInfo[n] = hits;
+    if(hits.length) dueCount++;
+  }
+}
+
+/* ================= Cube ================= */
+const pts = [];
+for(let i=0;i<TOTAL;i++){
+  // point 1-100 = base layer, 901-1000 = top layer (y = height axis)
+  pts.push({ n:i+1, x:(i%10)-4.5, y:4.5-Math.floor(i/100), z:(Math.floor(i/10)%10)-4.5,
+             sx:0, sy:0, r:0, depth:0 });
+}
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const stage = document.getElementById('stage');
+let W=0,H=0,dpr=1;
+function resize(){
+  dpr = window.devicePixelRatio||1;
+  W = stage.clientWidth; H = stage.clientHeight;
+  cv.width = W*dpr; cv.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize',resize);
+
+let yaw = 0.6, pitch = -0.45, zoom = 46, camZ = 13;
+let dragging=false, lastX=0,lastY=0, moved=false;
+
+cv.addEventListener('mousedown',e=>{dragging=true;moved=false;lastX=e.clientX;lastY=e.clientY;cv.classList.add('drag');});
+window.addEventListener('mouseup',()=>{dragging=false;cv.classList.remove('drag');});
+window.addEventListener('mousemove',e=>{
+  if(dragging){
+    const dx=e.clientX-lastX, dy=e.clientY-lastY;
+    if(Math.abs(dx)+Math.abs(dy)>2) moved=true;
+    yaw += dx*0.006; pitch += dy*0.006;
+    pitch = Math.max(-1.45,Math.min(1.45,pitch));
+    lastX=e.clientX; lastY=e.clientY;
+  }
+  hoverCheck(e);
+});
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  zoom = Math.max(20,Math.min(90, zoom - Math.sign(e.deltaY)*3));
+},{passive:false});
+
+const order = pts.map((_,i)=>i);
+function projectAll(){
+  const cy=Math.cos(yaw), sy=Math.sin(yaw), cp=Math.cos(pitch), sp=Math.sin(pitch);
+  for(const p of pts){
+    const x1 = p.x*cy + p.z*sy;
+    const z1 = -p.x*sy + p.z*cy;
+    const y1 = p.y*cp - z1*sp;
+    const z2 = p.y*sp + z1*cp;
+    const f = camZ/(camZ - z2);
+    p.depth = z2;
+    p.sx = W/2 + x1*f*zoom;
+    p.sy = H/2 + y1*f*zoom;
+    p.r  = Math.max(1.6, 3.4*f*(zoom/46));
+  }
+  order.sort((a,b)=>pts[a].depth - pts[b].depth);
+}
+function colorFor(p, t){
+  const hits = dueInfo[p.n];
+  const due = hits.length>0;
+  const isClr = cleared.has(p.n);
+  let base;
+  if(isClr) base=[46,204,113];
+  else if(due) base = hits.some(s=>s>=109) ? [255,209,102] : [255,159,67];
+  else base=[95,110,150];
+  let a = due&&!isClr ? 0.95 : (isClr?0.85:0.38);
+  let mul = (due&&!isClr) ? 0.78+0.22*Math.sin(t*3.5+p.n*0.7) : 1;
+  if(highlightSurah!==null){
+    if(hits.includes(highlightSurah)){ a=1; mul=Math.max(mul,1.05); }
+    else a*=0.12;
+  }
+  return [`rgb(${base[0]*mul|0},${base[1]*mul|0},${base[2]*mul|0})`, a];
+}
+function draw(t){
+  ctx.clearRect(0,0,W,H);
+  projectAll();
+  for(const idx of order){
+    const p=pts[idx];
+    const [col,a]=colorFor(p,t);
+    ctx.globalAlpha=a; ctx.fillStyle=col;
+    ctx.beginPath(); ctx.arc(p.sx,p.sy,p.r,0,6.2832); ctx.fill();
+    if(p===hoverPt){
+      ctx.globalAlpha=1; ctx.strokeStyle='#fff'; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.arc(p.sx,p.sy,p.r+3,0,6.2832); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha=1;
+}
+
+/* ================= Hover / tooltip ================= */
+let hoverPt=null;
+const tip=document.getElementById('tip');
+function nearestPoint(mx,my){
+  let best=null,bd=14;
+  for(const p of pts){
+    const d=Math.hypot(p.sx-mx,p.sy-my);
+    if(d<bd){bd=d;best=p;}
+  }
+  return best;
+}
+function allDivisors(n){ const out=[]; for(let s=1;s<=MODULUS;s++) if(n%s===0) out.push(s); return out; }
+function hoverCheck(e){
+  const rect=cv.getBoundingClientRect();
+  const p=nearestPoint(e.clientX-rect.left, e.clientY-rect.top);
+  hoverPt=p;
+  if(!p){ tip.style.display='none'; return; }
+  const hits=dueInfo[p.n];
+  const wild=hits.filter(s=>s>=109), hourly=hits.filter(s=>s<109);
+  const divs=allDivisors(p.n);
+  const divTxt = divs.length>14 ? divs.slice(0,14).join(', ')+` … (+${divs.length-14})` : divs.join(', ');
+  tip.innerHTML =
+    `<div class="pnum">Point ${p.n}</div>`+
+    `<div class="mod">${p.n} mod 114 = <b>${modSurah(p.n)===114&&p.n%114===0?0:p.n%114}</b> → Surah <b>${modSurah(p.n)} ${SURAH_NAMES[modSurah(p.n)-1]}</b></div>`+
+    `<div class="mod">∛${p.n} ≈ ${Math.cbrt(p.n).toFixed(2)} → Surah <b>${cbrtSurah(p.n)} ${SURAH_NAMES[cbrtSurah(p.n)-1]}</b></div>`+
+    `<div class="row">Status: <b>${cleared.has(p.n)?'✓ taken care of':(hits.length?'⚠ DUE this hour':'idle this hour')}</b></div>`+
+    (hourly.length?`<div class="row">Due via hour ${hour}: surah <b>${hourly.join(', ')}</b></div>`:'')+
+    (wild.length?`<div class="row">Wildcard surah (any hour): <b>${wild.join(', ')}</b></div>`:'')+
+    `<div class="row">All surahs (1–114) dividing it: <b>${divTxt||'none'}</b></div>`;
+  tip.style.display='block';
+  const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  tip.style.left=Math.min(W-260,x+16)+'px';
+  tip.style.top=Math.max(4,y-20)+'px';
+}
+
+/* ================= Action sheet ================= */
+const sheet=document.getElementById('sheet');
+let sheetPoint=null;
+function openSheet(n,x,y){
+  sheetPoint=n;
+  const ms=modSurah(n), cs=cbrtSurah(n);
+  const due=dueInfo[n].length>0 && !cleared.has(n);
+  sheet.innerHTML =
+    `<div class="ph">Point ${n}</div>`+
+    `<div class="pm">${n} mod 114 = ${n%114} · ∛${n} ≈ ${Math.cbrt(n).toFixed(2)}</div>`+
+    `<button class="read" id="shMod">📖 Read Surah ${ms} — ${SURAH_NAMES[ms-1]} <small>(${n} mod 114)</small></button>`+
+    `<button class="read" id="shCbrt">📖 Read Surah ${cs} — ${SURAH_NAMES[cs-1]} <small>(cube root)</small></button>`+
+    (due?`<button class="care" id="shCare">✓ Take care of point (+10)</button>`:'')+
+    `<button class="close" id="shClose">✕ Close</button>`;
+  sheet.style.display='block';
+  sheet.style.left=Math.min(W-300,Math.max(4,x))+'px';
+  sheet.style.top=Math.min(H-220,Math.max(4,y))+'px';
+  document.getElementById('shMod').onclick=()=>{closeSheet();openReader(ms,n,'mod 114');};
+  document.getElementById('shCbrt').onclick=()=>{closeSheet();openReader(cs,n,'cube root');};
+  const care=document.getElementById('shCare');
+  if(care) care.onclick=()=>{ takeCare(n); closeSheet(); };
+  document.getElementById('shClose').onclick=closeSheet;
+}
+function closeSheet(){ sheet.style.display='none'; }
+
+cv.addEventListener('click',e=>{
+  if(moved) return;
+  const rect=cv.getBoundingClientRect();
+  const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  const p=nearestPoint(x,y);
+  if(!p){ closeSheet(); return; }
+  openSheet(p.n,x+10,y+10);
+});
+
+document.getElementById('randBtn').onclick=()=>{
+  const n=1+Math.floor(Math.random()*TOTAL);
+  const p=pts[n-1];
+  openSheet(n, Math.max(20,W/2-140), Math.max(20,H/2-110));
+  toast(`🎲 Random point: ${n} (${n} mod 114 = ${n%114}, ∛ ≈ ${Math.cbrt(n).toFixed(1)})`);
+};
+
+function takeCare(n){
+  if(cleared.has(n) || dueInfo[n].length===0) return;
+  cleared.add(n); score+=10;
+  if(cleared.size===dueCount){ score+=100; toast(`🎉 All ${dueCount} points cleared! +100 bonus`); }
+  else toast(`+10 — point ${n} taken care of (${dueInfo[n].map(s=>'S'+s).join(', ')})`);
+  updateUI();
+}
+
+let toastTimer=null;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.style.display='block';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.style.display='none',2600);
+}
+
+/* ================= Quran reader ================= */
+const qEl=document.getElementById('quran');
+const qScroll=document.getElementById('qscroll');
+const qCard=document.getElementById('qcard');
+const qLoad=document.getElementById('qload');
+const qTitle=document.getElementById('qtitle');
+const qPlay=document.getElementById('qplay');
+const reader={open:false,surah:1,playing:false,speed:1,font:22,pps:0,lastTs:0,raf:null};
+
+const BISMILLAH="بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ";
+
+async function loadSurah(n){
+  try{ const c=localStorage.getItem('surah-'+n); if(c) return JSON.parse(c); }catch(e){}
+  const url=`https://api.alquran.cloud/v1/surah/${n}/editions/quran-uthmani,en.asad,ur.jalandhry`;
+  const res=await fetch(url);
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const j=await res.json();
+  const [ar,en,ur]=j.data;
+  const data={name:ar.name, enName:ar.englishName, enTrans:ar.englishNameTranslation,
+    ayahs:ar.ayahs.map((a,i)=>({num:a.numberInSurah, ar:a.text, en:en.ayahs[i].text, ur:ur.ayahs[i].text}))};
+  try{ localStorage.setItem('surah-'+n,JSON.stringify(data)); }catch(e){}
+  return data;
+}
+
+function renderSurah(data){
+  let html='';
+  if(reader.surah!==1 && reader.surah!==9)
+    html+=`<div class="bismillah">${BISMILLAH}</div>`;
+  for(const a of data.ayahs){
+    html+=`<div class="ayah">
+      <div class="ar"><span class="anum">${a.num}</span>${a.ar}</div>
+      <div class="en">${a.en}</div>
+      <div class="ur">${a.ur}</div>
+    </div>`;
+  }
+  qCard.innerHTML=html;
+}
+
+function computePace(){
+  const total=qScroll.scrollHeight-qScroll.clientHeight;
+  // 17 minutes per juz → whole Quran (30 juz) in 510 min; surah share by ayah count
+  const secs=(SURAH_AYAHS[reader.surah-1]/TOTAL_AYAHS)*30*17*60/reader.speed;
+  reader.pps=total>0 ? total/Math.max(1,secs) : 0;
+  const mins=(secs/60);
+  document.getElementById('qpace').textContent=
+    `pace ≈ 17 min / juz · this surah in ~${mins<1?Math.round(secs)+'s':mins.toFixed(1)+' min'} at ${reader.speed}×`;
+}
+
+function setFont(px){
+  reader.font=px;
+  qCard.style.setProperty('--qf',px+'px');
+  document.getElementById('qfontLbl').textContent=px;
+  computePace();
+}
+function setSpeed(m){
+  reader.speed=m;
+  document.getElementById('qspeedLbl').textContent=m+'×';
+  computePace();
+}
+function setPlaying(on){
+  reader.playing=on;
+  qPlay.textContent = on ? '⏸ Pause' : '▶ Resume';
+}
+qPlay.onclick=()=>setPlaying(!reader.playing);
+document.getElementById('qspeed').oninput=e=>setSpeed(parseFloat(e.target.value));
+document.getElementById('qfont').oninput=e=>setFont(parseInt(e.target.value));
+document.querySelectorAll('.themebtn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.themebtn').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  qEl.className='theme-'+b.dataset.t;
+  document.getElementById('scForest').style.display   = b.dataset.t==='forest'?'':'none';
+  document.getElementById('scDesert').style.display   = b.dataset.t==='desert'?'':'none';
+  document.getElementById('scMountains').style.display= b.dataset.t==='mountains'?'':'none';
+});
+// manual scrolling pauses auto-scroll
+['wheel','touchmove'].forEach(ev=>qScroll.addEventListener(ev,()=>{ if(reader.playing) setPlaying(false); },{passive:true}));
+qScroll.addEventListener('scroll',()=>{
+  const total=qScroll.scrollHeight-qScroll.clientHeight;
+  const pct=total>0?Math.min(100,100*qScroll.scrollTop/total):100;
+  document.getElementById('qprog').firstElementChild.style.width=pct+'%';
+  document.getElementById('qpct').textContent=Math.round(pct)+'%';
+  if(pct>=100 && reader.playing) setPlaying(false);
+});
+
+async function openReader(surahNum, fromPoint, via){
+  reader.open=true; reader.surah=surahNum;
+  qEl.style.display='flex';
+  qLoad.style.display='flex';
+  qScroll.scrollTop=0;
+  setPlaying(false);
+  try{
+    const data=await loadSurah(surahNum);
+    if(!reader.open||reader.surah!==surahNum) return;
+    qTitle.innerHTML=`Surah ${surahNum} · ${data.enName} <small>(${data.enTrans})</small><span class="ar">${data.name}</span>`+
+      (fromPoint?` <small style="opacity:.6">— point ${fromPoint} via ${via}</small>`:'');
+    renderSurah(data);
+    qLoad.style.display='none';
+    setFont(reader.font); setSpeed(reader.speed);
+    computePace();
+    setPlaying(true);
+    reader.lastTs=performance.now();
+  }catch(err){
+    qLoad.innerHTML='⚠️ Could not load surah text.<br><small>Internet is needed the first time a surah is opened (it is cached afterwards).</small>';
+  }
+}
+function closeReader(){
+  reader.open=false; setPlaying(false);
+  qEl.style.display='none';
+}
+document.getElementById('qback').onclick=closeReader;
+window.addEventListener('keydown',e=>{ if(e.key==='Escape'&&reader.open) closeReader(); });
+
+function readerFrame(ts){
+  if(reader.open && reader.playing){
+    const dt=Math.min(0.1,(ts-reader.lastTs)/1000);
+    qScroll.scrollTop += reader.pps*dt;
+  }
+  reader.lastTs=ts;
+  requestAnimationFrame(readerFrame);
+}
+
+/* ================= UI / hours ================= */
+function setHour(h){
+  hour=((h-1+12)%12)+1;
+  cleared=new Set(); highlightSurah=null;
+  computeDue(); updateUI();
+}
+function updateUI(){
+  document.getElementById('hourLbl').textContent=hour+" o'clock";
+  const hs=hourSurahs(hour);
+  document.getElementById('rangeLbl').textContent=`${hs[0]}–${hs[8]}`;
+  document.getElementById('dueLbl').textContent=dueCount;
+  document.getElementById('clrLbl').textContent=cleared.size;
+  document.getElementById('scoreLbl').textContent=score;
+  const list=document.getElementById('surahlist');
+  list.innerHTML='';
+  const mkRow=(s,wild)=>{
+    const total=Math.floor(TOTAL/s);
+    const done=cleared.size?countClearedFor(s):0;
+    const row=document.createElement('div');
+    row.className='srow'+(wild?' wild':'')+(highlightSurah===s?' hl':'');
+    row.innerHTML=`<div class="num">S ${s}</div>
+      <div class="info">${total} multiples · ${done} cleared · ${SURAH_NAMES[s-1]}
+      <div class="bar"><i style="width:${total?100*done/total:0}%"></i></div></div>`;
+    row.title=`Highlight multiples of ${s} · click again to clear`;
+    row.onclick=()=>{ highlightSurah=(highlightSurah===s?null:s); updateUI(); };
+    list.appendChild(row);
+  };
+  hs.forEach(s=>mkRow(s,false));
+  const sep=document.createElement('h2');
+  sep.textContent='Wildcards — any hour';
+  sep.style.cssText='font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);padding:10px 4px 4px';
+  list.appendChild(sep);
+  WILDS.forEach(s=>mkRow(s,true));
+}
+function countClearedFor(s){ let c=0; for(let m=s;m<=TOTAL;m+=s) if(cleared.has(m)) c++; return c; }
+
+document.getElementById('prevH').onclick=()=>{ live=false; syncLiveBtn(); setHour(hour-1); };
+document.getElementById('nextH').onclick=()=>{ live=false; syncLiveBtn(); setHour(hour+1); };
+const liveBtn=document.getElementById('liveBtn');
+function syncLiveBtn(){ liveBtn.classList.toggle('on',live); }
+liveBtn.onclick=()=>{ live=!live; syncLiveBtn(); if(live) setHour(liveHour()); };
+const rotBtn=document.getElementById('rotBtn');
+rotBtn.onclick=()=>{ autoRotate=!autoRotate; rotBtn.classList.toggle('on',autoRotate); };
+
+setInterval(()=>{
+  const now=new Date();
+  const secsToNext=3600-(now.getMinutes()*60+now.getSeconds());
+  const mm=String(Math.floor(secsToNext/60)).padStart(2,'0');
+  const ss=String(secsToNext%60).padStart(2,'0');
+  document.getElementById('cd').textContent=live?`${mm}:${ss}`:'manual';
+  if(live){ const h=liveHour(); if(h!==hour) setHour(h); }
+},500);
+
+/* ================= Main loops ================= */
+resize(); computeDue(); updateUI();
+let lastT=0;
+function frame(ts){
+  const t=ts/1000;
+  if(autoRotate && !dragging) yaw+=(t-lastT)*0.12;
+  lastT=t;
+  draw(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+requestAnimationFrame(readerFrame);
+</script>
+</body>
+</html>

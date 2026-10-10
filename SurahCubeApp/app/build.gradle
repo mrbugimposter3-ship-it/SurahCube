@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Signing credentials live in keystore.properties (gitignored).
+// If the file is absent (e.g. a fork), the release build is simply unsigned.
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+}
+
+android {
+    namespace 'com.surahcube.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.surahcube.app"
+        minSdk 24
+        targetSdk 34
+        versionCode 4
+        versionName "1.3"
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropsFile.exists()) {
+                storeFile rootProject.file(keystoreProps['storeFile'] ?: "surahcube.keystore")
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+        }
+    }
+}

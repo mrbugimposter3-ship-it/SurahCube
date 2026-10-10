@@ -1,0 +1,16 @@
+# Android build outputs
+SurahCubeApp/.gradle/
+SurahCubeApp/build/
+SurahCubeApp/app/build/
+SurahCubeApp/local.properties
+
+# Signing secrets — never commit these
+SurahCubeApp/surahcube.keystore
+SurahCubeApp/keystore.properties
+
+# Debug APK (the release APK is committed for easy download)
+SurahCube.apk
+
+# OS junk
+Thumbs.db
+.DS_Store
